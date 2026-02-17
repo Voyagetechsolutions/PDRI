@@ -1,0 +1,248 @@
+# PDRI CI/CD Pipeline
+# ====================
+# Multi-region deployment workflow
+
+name: PDRI Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pdri/**'
+      - 'dmitry/**'
+      - 'infrastructure/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      region:
+        description: 'Target region (all for multi-region)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - us-east-1
+          - eu-west-1
+          - ap-southeast-1
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # ==========================================================================
+  # Test & Lint
+  # ==========================================================================
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Lint with ruff
+        run: ruff check pdri/ dmitry/
+      
+      - name: Type check with mypy
+        run: mypy pdri/ --ignore-missing-imports
+      
+      - name: Run tests
+        run: pytest tests/ -v --cov=pdri --cov-report=xml
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+
+  # ==========================================================================
+  # Build Container Images
+  # ==========================================================================
+  build:
+    name: Build Images
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        service: [api, worker, ml, federation]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/pdri/${{ matrix.service }}:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/pdri/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==========================================================================
+  # Deploy to Staging
+  # ==========================================================================
+  deploy-staging:
+    name: Deploy Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name pdri-staging-us-east-1 --region us-east-1
+      
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install pdri ./infrastructure/helm/pdri \
+            --namespace pdri \
+            --create-namespace \
+            --set global.environment=staging \
+            --set api.image.tag=${{ env.IMAGE_TAG }} \
+            --set worker.image.tag=${{ env.IMAGE_TAG }} \
+            --set ml.image.tag=${{ env.IMAGE_TAG }} \
+            --set federation.image.tag=${{ env.IMAGE_TAG }} \
+            --wait --timeout 10m
+      
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/pdri-api -n pdri
+          kubectl get pods -n pdri
+
+  # ==========================================================================
+  # Deploy to Production (Multi-Region)
+  # ==========================================================================
+  deploy-prod:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    strategy:
+      max-parallel: 1  # Sequential deployment
+      matrix:
+        region:
+          - us-east-1
+          - eu-west-1
+          - ap-southeast-1
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ matrix.region }}
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name pdri-prod-${{ matrix.region }} --region ${{ matrix.region }}
+      
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install pdri ./infrastructure/helm/pdri \
+            --namespace pdri \
+            --create-namespace \
+            --set global.environment=production \
+            --set global.region=${{ matrix.region }} \
+            --set api.image.tag=${{ env.IMAGE_TAG }} \
+            --set worker.image.tag=${{ env.IMAGE_TAG }} \
+            --set ml.image.tag=${{ env.IMAGE_TAG }} \
+            --set federation.image.tag=${{ env.IMAGE_TAG }} \
+            --wait --timeout 15m
+      
+      - name: Run smoke tests
+        run: |
+          kubectl run smoke-test --image=curlimages/curl --rm -i --restart=Never -- \
+            curl -sf http://pdri-api.pdri.svc:8000/api/v2/health
+      
+      - name: Notify deployment
+        if: success()
+        run: echo "✅ Deployed to ${{ matrix.region }}"
+
+  # ==========================================================================
+  # Infrastructure (Terraform)
+  # ==========================================================================
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && contains(github.event.inputs.region, 'all')
+    environment: infrastructure
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Terraform Init
+        working-directory: infrastructure/terraform
+        run: terraform init
+      
+      - name: Terraform Plan
+        working-directory: infrastructure/terraform
+        run: |
+          terraform plan \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -out=tfplan
+      
+      - name: Terraform Apply
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: infrastructure/terraform
+        run: terraform apply -auto-approve tfplan

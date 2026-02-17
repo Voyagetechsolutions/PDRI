@@ -1,0 +1,212 @@
+# PDRI Helm Values
+# ================
+# Default configuration for PDRI deployment
+
+# Global settings
+global:
+  environment: production
+  region: us-east-1
+  domain: pdri.example.com
+
+# =============================================================================
+# API Service
+# =============================================================================
+api:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: pdri/api
+    tag: "3.0.0"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+  
+  env:
+    LOG_LEVEL: "INFO"
+    WORKERS: "4"
+
+# =============================================================================
+# Worker Service
+# =============================================================================
+worker:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: pdri/worker
+    tag: "3.0.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+  
+  env:
+    CONCURRENCY: "4"
+
+# =============================================================================
+# ML Service
+# =============================================================================
+ml:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: pdri/ml
+    tag: "3.0.0"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8001
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+  
+  nodeSelector:
+    role: ml
+  
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# =============================================================================
+# Federation Service
+# =============================================================================
+federation:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: pdri/federation
+    tag: "3.0.0"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8002
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# =============================================================================
+# Ingress
+# =============================================================================
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /api/v2/health
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    alb.ingress.kubernetes.io/certificate-arn: ""
+  hosts:
+    - host: api.pdri.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+# =============================================================================
+# Neo4j
+# =============================================================================
+neo4j:
+  enabled: false  # Use external managed Neo4j
+  external:
+    host: neo4j.internal
+    port: 7687
+    username: neo4j
+    existingSecret: pdri-neo4j-secret
+
+# =============================================================================
+# Redis
+# =============================================================================
+redis:
+  enabled: false  # Use external ElastiCache
+  external:
+    host: redis.internal
+    port: 6379
+    existingSecret: pdri-redis-secret
+
+# =============================================================================
+# Kafka
+# =============================================================================
+kafka:
+  external:
+    brokers: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+    securityProtocol: SASL_SSL
+    existingSecret: pdri-kafka-secret
+
+# =============================================================================
+# Secrets
+# =============================================================================
+secrets:
+  create: true
+  annotations: {}
+
+# =============================================================================
+# Service Account
+# =============================================================================
+serviceAccount:
+  create: true
+  name: pdri
+  annotations:
+    eks.amazonaws.com/role-arn: ""
+
+# =============================================================================
+# Pod Disruption Budget
+# =============================================================================
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 50%
+
+# =============================================================================
+# Network Policies
+# =============================================================================
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: pdri

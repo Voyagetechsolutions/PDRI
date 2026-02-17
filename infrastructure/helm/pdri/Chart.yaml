@@ -1,0 +1,29 @@
+# PDRI Helm Chart
+# ===============
+
+apiVersion: v2
+name: pdri
+description: Predictive Data Risk Infrastructure Platform
+type: application
+version: 1.0.0
+appVersion: "3.0.0"
+
+keywords:
+  - risk
+  - security
+  - compliance
+  - ml
+
+maintainers:
+  - name: PDRI Team
+    email: team@pdri.example.com
+
+dependencies:
+  - name: neo4j
+    version: "5.x.x"
+    repository: "https://helm.neo4j.com/neo4j"
+    condition: neo4j.enabled
+  - name: redis
+    version: "18.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled

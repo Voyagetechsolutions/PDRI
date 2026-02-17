@@ -1,0 +1,180 @@
+# =============================================================================
+# PDRI - Predictive Data Risk Infrastructure
+# Docker Compose Configuration
+# =============================================================================
+#
+# Services:
+#   - PostgreSQL: Risk history, trajectories, metadata storage
+#   - Neo4j: Risk graph database
+#   - Zookeeper: Kafka coordination
+#   - Kafka: Event streaming bus
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose ps             # Check status
+#   docker-compose logs -f kafka  # Follow kafka logs
+#   docker-compose down           # Stop all services
+#
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # PostgreSQL - Relational Database
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: pdri-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pdri
+      POSTGRES_USER: pdri_user
+      POSTGRES_PASSWORD: pdri_secure_password_change_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdri_user -d pdri"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pdri-network
+
+  # ===========================================================================
+  # Neo4j - Graph Database
+  # ===========================================================================
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: pdri-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/neo4j_secure_password_change_me
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"  # HTTP Browser
+      - "7687:7687"  # Bolt Protocol
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - pdri-network
+
+  # ===========================================================================
+  # Zookeeper - Kafka Coordination
+  # ===========================================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: pdri-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pdri-network
+
+  # ===========================================================================
+  # Kafka - Event Streaming Bus
+  # ===========================================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: pdri-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_MESSAGE_MAX_BYTES: 10485760
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 10485760
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - pdri-network
+
+  # ===========================================================================
+  # Kafka Topic Initialization
+  # ===========================================================================
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: pdri-kafka-setup
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      echo 'Waiting for Kafka to be ready...'
+      kafka-topics --bootstrap-server kafka:29092 --list
+
+      echo 'Creating topics...'
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic security-events --replication-factor 1 --partitions 3
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic risk-updates --replication-factor 1 --partitions 3
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dead-letter-queue --replication-factor 1 --partitions 1
+
+      echo 'Topics created:'
+      kafka-topics --bootstrap-server kafka:29092 --list
+      "
+    networks:
+      - pdri-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  pdri-network:
+    driver: bridge
