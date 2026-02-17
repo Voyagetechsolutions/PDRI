@@ -16,7 +16,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
@@ -349,7 +349,7 @@ class TrajectoryPredictor:
         
         # Forecast flat at last known value
         last_score = history[-1][1] if history else 50.0
-        last_ts = history[-1][0] if history else datetime.utcnow()
+        last_ts = history[-1][0] if history else datetime.now(timezone.utc)
         
         forecast_points = []
         for i in range(1, horizon_days + 1):
@@ -371,25 +371,41 @@ class TrajectoryPredictor:
     async def predict_batch(
         self,
         nodes: List[Tuple[str, List[Tuple[datetime, float]]]],
-        horizon_days: int = 30
+        horizon_days: int = 30,
+        max_concurrency: int = 20,
     ) -> List[RiskTrajectory]:
         """
-        Predict trajectories for multiple nodes.
+        Predict trajectories for multiple nodes concurrently.
         
         Args:
             nodes: List of (node_id, history) tuples
             horizon_days: Forecast horizon
+            max_concurrency: Max concurrent predictions (semaphore limit)
         
         Returns:
             List of RiskTrajectory objects
         """
+        import asyncio
+
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _predict_one(node_id: str, history):
+            async with semaphore:
+                return await self.predict(node_id, history, horizon_days)
+
+        tasks = [
+            _predict_one(node_id, history)
+            for node_id, history in nodes
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
         trajectories = []
-        for node_id, history in nodes:
-            try:
-                trajectory = await self.predict(node_id, history, horizon_days)
-                trajectories.append(trajectory)
-            except Exception as e:
-                print(f"Error predicting {node_id}: {e}")
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                print(f"Error predicting {nodes[i][0]}: {result}")
+            else:
+                trajectories.append(result)
         return trajectories
     
     def find_critical_risks(

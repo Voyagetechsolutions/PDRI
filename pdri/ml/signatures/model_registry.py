@@ -15,7 +15,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -192,7 +192,7 @@ class ModelRegistry:
         registry_file = self.storage_path / "registry.json"
         data = {
             "models": [m.to_dict() for m in self._models.values()],
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         with open(registry_file, "w") as f:
             json.dump(data, f, indent=2)
@@ -247,7 +247,7 @@ class ModelRegistry:
             Model ID
         """
         model_id = self._generate_id(name)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         model = RegisteredModel(
             model_id=model_id,
@@ -308,7 +308,7 @@ class ModelRegistry:
             version_id=version_id,
             model_id=model_id,
             version_number=f"v{version_num}",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             model_type=model.model_type,
             status=ModelStatus.DRAFT,
             metrics=metrics,
@@ -320,7 +320,7 @@ class ModelRegistry:
         )
         
         model.versions.append(version)
-        model.updated_at = datetime.utcnow()
+        model.updated_at = datetime.now(timezone.utc)
         
         self._save_registry()
         
@@ -454,5 +454,5 @@ class ModelRegistry:
     def _generate_id(self, name: str) -> str:
         """Generate unique model ID."""
         slug = name.lower().replace(" ", "-")
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         return f"{slug}-{timestamp}"

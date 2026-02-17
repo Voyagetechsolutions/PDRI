@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from pdri.api.dependencies import get_graph_engine
+from pdri.api.dependencies import require_graph_engine
 from pdri.graph.engine import GraphEngine, GraphEngineError
 from pdri.graph.models import (
     NodeType,
@@ -105,7 +105,7 @@ class NodeResponse(BaseModel):
 )
 async def create_data_store(
     request: CreateDataStoreRequest,
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, Any]:
     """Create a data store node."""
     node = DataStoreNode(
@@ -135,7 +135,7 @@ async def create_data_store(
 async def list_data_stores(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """List all data store nodes with pagination."""
     try:
@@ -161,7 +161,7 @@ async def list_data_stores(
 )
 async def create_service(
     request: CreateServiceRequest,
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, Any]:
     """Create a service node."""
     node = ServiceNode(
@@ -189,7 +189,7 @@ async def create_service(
 async def list_services(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """List all service nodes."""
     try:
@@ -214,7 +214,7 @@ async def list_services(
 )
 async def create_ai_tool(
     request: CreateAIToolRequest,
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, Any]:
     """Create an AI tool node."""
     node = AIToolNode(
@@ -244,7 +244,7 @@ async def create_ai_tool(
 async def list_ai_tools(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """List all AI tool nodes."""
     try:
@@ -269,7 +269,7 @@ async def list_ai_tools(
 async def get_node(
     node_id: str,
     include_relationships: bool = Query(False),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, Any]:
     """Get a node by ID."""
     try:
@@ -297,7 +297,7 @@ async def get_node(
 async def update_node(
     node_id: str,
     properties: Dict[str, Any],
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, Any]:
     """Update node properties."""
     try:
@@ -321,7 +321,7 @@ async def update_node(
 )
 async def delete_node(
     node_id: str,
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, bool]:
     """Delete a node."""
     try:
@@ -346,7 +346,7 @@ async def delete_node(
 async def get_neighbors(
     node_id: str,
     limit: int = Query(50, ge=1, le=200),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """Get neighboring nodes."""
     try:
@@ -366,7 +366,7 @@ async def get_neighbors(
 )
 async def create_edge(
     request: CreateEdgeRequest,
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, Any]:
     """Create an edge between nodes."""
     import uuid
@@ -395,7 +395,7 @@ async def create_edge(
 async def get_node_edges(
     node_id: str,
     direction: str = Query("all", enum=["incoming", "outgoing", "all"]),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """Get edges for a node."""
     try:

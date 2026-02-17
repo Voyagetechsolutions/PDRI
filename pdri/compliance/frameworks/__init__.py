@@ -13,6 +13,8 @@ from .soc2 import SOC2Assessor
 from .iso27001 import ISO27001Assessor
 from .gdpr import GDPRAssessor
 from .hipaa import HIPAAAssessor
+from .nist_csf import NISTCSFAssessor
+from .pci_dss import PCIDSSAssessor
 
 __all__ = [
     "FedRAMPAssessor",
@@ -20,4 +22,7 @@ __all__ = [
     "ISO27001Assessor",
     "GDPRAssessor",
     "HIPAAAssessor",
+    "NISTCSFAssessor",
+    "PCIDSSAssessor",
 ]
+

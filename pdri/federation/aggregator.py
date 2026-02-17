@@ -14,7 +14,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import numpy as np
 
@@ -101,7 +101,7 @@ class FederatedAggregator:
         
         self._current_round = AggregationRound(
             round_id=f"round-{self._round_counter:06d}",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             status="in_progress",
         )
         
@@ -125,8 +125,8 @@ class FederatedAggregator:
             return False
         
         # Check staleness
-        update_time = datetime.fromisoformat(update.get("timestamp", datetime.utcnow().isoformat()))
-        age_hours = (datetime.utcnow() - update_time).total_seconds() / 3600
+        update_time = datetime.fromisoformat(update.get("timestamp", datetime.now(timezone.utc).isoformat()))
+        age_hours = (datetime.now(timezone.utc) - update_time).total_seconds() / 3600
         if age_hours > self.staleness_threshold_hours:
             return False
         
@@ -178,7 +178,7 @@ class FederatedAggregator:
         # Complete round
         if self._current_round:
             self._current_round.status = "completed"
-            self._current_round.completed_at = datetime.utcnow()
+            self._current_round.completed_at = datetime.now(timezone.utc)
             self._current_round.aggregated_metrics = self._compute_aggregated_metrics()
         
         # Deduplicate fingerprints
@@ -280,9 +280,9 @@ class FederatedAggregator:
             Dictionary suitable for client consumption
         """
         return {
-            "update_id": f"global-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "update_id": f"global-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
             "model_version": f"v{self._round_counter}.0",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "aggregated_weights": {
                 k: v.tolist() for k, v in self._global_weights.items()
             },

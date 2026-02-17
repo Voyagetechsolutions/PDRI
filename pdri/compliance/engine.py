@@ -9,7 +9,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import json
@@ -158,7 +158,7 @@ class ComplianceEngine:
         """
         self._assessment_counter += 1
         assessment_id = f"assess-{self._assessment_counter:06d}"
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         
         # Get framework controls
         framework_def = self._frameworks.get(framework, {})
@@ -195,7 +195,7 @@ class ComplianceEngine:
             framework=framework,
             scope=scope,
             started_at=started_at,
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
             control_assessments=control_assessments,
             overall_score=overall_score,
             overall_status=overall_status,
@@ -248,13 +248,45 @@ class ComplianceEngine:
             findings=findings,
             evidence=evidence,
             recommendations=recommendations,
-            assessed_at=datetime.utcnow(),
+            assessed_at=datetime.now(timezone.utc),
         )
     
     async def _default_control_check(self, control: Dict) -> float:
-        """Default check using risk scoring."""
-        # In production, would analyze graph based on control requirements
-        return 75.0  # Default partially compliant
+        """Default check using risk scoring and graph data."""
+        score = 75.0  # baseline
+
+        try:
+            # Query graph for risk distribution
+            if hasattr(self.graph_engine, "get_risk_distribution"):
+                dist = await self.graph_engine.get_risk_distribution()
+                total = sum(dist.values()) if dist else 1
+                critical = dist.get("critical", 0) + dist.get("high", 0)
+                if total > 0:
+                    high_pct = critical / total
+                    score = max(0, 100 - high_pct * 100)
+
+            # Check for high-risk nodes related to the control category
+            if hasattr(self.graph_engine, "get_high_risk_nodes"):
+                high_risk = await self.graph_engine.get_high_risk_nodes(
+                    threshold=0.7, limit=50
+                )
+                if high_risk:
+                    penalty = min(30, len(high_risk) * 2)
+                    score = max(0, score - penalty)
+
+            # Check for external exposures (relevant for access controls)
+            category = control.get("category", "")
+            if category in ("access_control", "encryption", "data_protection"):
+                if hasattr(self.graph_engine, "get_external_exposures"):
+                    exposures = await self.graph_engine.get_external_exposures()
+                    if exposures:
+                        exposure_penalty = min(20, len(exposures) * 3)
+                        score = max(0, score - exposure_penalty)
+
+        except Exception as e:
+            logger.warning(f"Graph query failed during compliance check: {e}")
+
+        return round(max(0, min(100, score)), 1)
     
     def _generate_summary(
         self,

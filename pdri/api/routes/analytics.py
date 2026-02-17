@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from pdri.api.dependencies import get_graph_engine, get_scoring_engine
+from pdri.api.dependencies import require_graph_engine, require_scoring_engine
 from pdri.graph.engine import GraphEngine
 from pdri.scoring.engine import ScoringEngine
 
@@ -80,7 +80,7 @@ class RiskSummaryResponse(BaseModel):
     description="Get distribution of entities across risk levels."
 )
 async def get_risk_distribution(
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """
     Get risk distribution across all entities.
@@ -108,7 +108,7 @@ async def get_risk_distribution(
 async def get_high_risk_entities(
     threshold: float = Query(0.6, ge=0.0, le=1.0),
     limit: int = Query(20, ge=1, le=100),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """
     Get entities with exposure score above threshold.
@@ -132,7 +132,7 @@ async def get_high_risk_entities(
     description="Get overall risk summary for the graph."
 )
 async def get_risk_summary(
-    scoring: ScoringEngine = Depends(get_scoring_engine)
+    scoring: ScoringEngine = Depends(require_scoring_engine)
 ) -> Dict[str, Any]:
     """
     Get comprehensive risk summary.
@@ -172,7 +172,7 @@ async def find_exposure_paths(
     entity_id: str,
     max_depth: int = Query(5, ge=1, le=10),
     limit: int = Query(10, ge=1, le=50),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """
     Find paths from a node to external exposure points.
@@ -203,7 +203,7 @@ async def find_ai_exposure_paths(
     min_sensitivity: float = Query(0.5, ge=0.0, le=1.0),
     max_depth: int = Query(4, ge=1, le=8),
     limit: int = Query(20, ge=1, le=100),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """
     Find all paths from sensitive data stores to AI tools.
@@ -228,7 +228,7 @@ async def find_ai_exposure_paths(
 )
 async def get_external_exposures(
     limit: int = Query(50, ge=1, le=200),
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> List[Dict[str, Any]]:
     """
     Get all internal resources exposed to external entities.
@@ -255,7 +255,7 @@ async def get_external_exposures(
     description="Get graph-level metrics and statistics."
 )
 async def get_graph_metrics(
-    graph: GraphEngine = Depends(get_graph_engine)
+    graph: GraphEngine = Depends(require_graph_engine)
 ) -> Dict[str, Any]:
     """
     Get overall graph metrics.
@@ -277,7 +277,7 @@ async def get_graph_metrics(
         return {
             "total_nodes": total_nodes,
             "node_counts": node_counts,
-            "timestamp": __import__("datetime").datetime.utcnow().isoformat()
+            "timestamp": __import__("datetime").datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -32,9 +32,23 @@ python-dotenv>=1.0.0
 # Logging & Monitoring
 structlog>=24.1.0
 python-json-logger>=2.0.7
+prometheus-client>=0.20.0
+
+# Caching
+redis[hiredis]>=5.0.0
+
+# WebSocket
+websockets>=12.0
 
 # Date/Time
 python-dateutil>=2.8.2
+
+# Distributed Tracing (OpenTelemetry)
+opentelemetry-api>=1.22.0
+opentelemetry-sdk>=1.22.0
+opentelemetry-instrumentation-fastapi>=0.43b0
+opentelemetry-exporter-otlp-proto-grpc>=1.22.0
+
 
 # =============================================================================
 # Development Dependencies

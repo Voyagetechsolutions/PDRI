@@ -129,6 +129,9 @@ class SensitivityTag(str, Enum):
     
     REGULATED = "regulated_data"
     """Likely subject to regulatory compliance (GDPR, HIPAA, etc.)"""
+    
+    UNKNOWN = "unknown"
+    """Sensitivity level is unknown or unclassified"""
 
 
 class EntityType(str, Enum):

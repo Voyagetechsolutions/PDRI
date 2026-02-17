@@ -9,7 +9,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import hashlib
@@ -151,7 +151,7 @@ class EvidenceCollector:
             framework=framework,
             title=f"Graph Query for {control_id}",
             description=f"PDRI graph data supporting {control_id} compliance",
-            collected_at=datetime.utcnow(),
+            collected_at=datetime.now(timezone.utc),
             collected_by="pdri-evidence-collector",
             content=query_result,
             content_hash=content_hash,
@@ -175,7 +175,7 @@ class EvidenceCollector:
         
         # Get relevant audit events
         from datetime import timedelta
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(days=30)
         
         if hasattr(self.audit_trail, 'query'):
@@ -194,7 +194,7 @@ class EvidenceCollector:
             framework=framework,
             title=f"Audit Log Extract for {control_id}",
             description=f"Audit events demonstrating {control_id} compliance",
-            collected_at=datetime.utcnow(),
+            collected_at=datetime.now(timezone.utc),
             collected_by="pdri-evidence-collector",
             content=event_data,
             content_hash=content_hash,
@@ -221,7 +221,7 @@ class EvidenceCollector:
                 "encryption_at_rest": True,
                 "audit_logging": True,
             },
-            "collected_at": datetime.utcnow().isoformat(),
+            "collected_at": datetime.now(timezone.utc).isoformat(),
         }
         
         content = json.dumps(config_snapshot, default=str)
@@ -234,7 +234,7 @@ class EvidenceCollector:
             framework=framework,
             title=f"Configuration Snapshot for {control_id}",
             description="Current PDRI configuration settings",
-            collected_at=datetime.utcnow(),
+            collected_at=datetime.now(timezone.utc),
             collected_by="pdri-evidence-collector",
             content=config_snapshot,
             content_hash=content_hash,
@@ -251,7 +251,7 @@ class EvidenceCollector:
             "control_id": control_id,
             "data_points_analyzed": 150,
             "compliance_indicators": ["access_controls", "monitoring", "encryption"],
-            "query_timestamp": datetime.utcnow().isoformat(),
+            "query_timestamp": datetime.now(timezone.utc).isoformat(),
         }
     
     async def collect_for_assessment(
@@ -293,7 +293,7 @@ class EvidenceCollector:
             framework=framework,
             title=title,
             description=description,
-            collected_at=datetime.utcnow(),
+            collected_at=datetime.now(timezone.utc),
             collected_by=collected_by,
             content=content,
             content_hash=content_hash,

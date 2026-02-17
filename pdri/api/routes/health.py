@@ -3,19 +3,19 @@ PDRI Health Routes
 ==================
 
 Health check endpoints for monitoring and orchestration.
+Supports degraded mode when backing services are unavailable.
 
 Author: PDRI Team
-Version: 1.0.0
+Version: 1.1.0
 """
 
-from datetime import datetime
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from pdri.config import settings
-from pdri.api.dependencies import get_graph_engine
-from pdri.graph.engine import GraphEngine
+from pdri.api.dependencies import ServiceContainer
 
 
 router = APIRouter(prefix="/health", tags=["Health"])
@@ -32,11 +32,14 @@ async def health_check() -> Dict[str, Any]:
     
     Returns API status without checking dependencies.
     """
+    container = ServiceContainer.get_instance()
+    mode = "healthy" if container.graph_available else "degraded"
+    
     return {
-        "status": "healthy",
+        "status": mode,
         "service": settings.app_name,
         "version": settings.app_version,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -45,23 +48,33 @@ async def health_check() -> Dict[str, Any]:
     summary="Readiness Check",
     description="Checks if the service is ready to handle requests."
 )
-async def readiness_check(
-    graph: GraphEngine = Depends(get_graph_engine)
-) -> Dict[str, Any]:
+async def readiness_check() -> Dict[str, Any]:
     """
     Readiness check including dependency status.
     
     Verifies:
     - Neo4j graph database connectivity
     """
-    # Check graph database
-    graph_health = await graph.health_check()
+    container = ServiceContainer.get_instance()
     
-    all_healthy = graph_health.get("status") == "healthy"
+    # Check graph database
+    graph_health: Dict[str, Any]
+    if container.graph_available and container.graph_engine:
+        try:
+            graph_health = await container.graph_engine.health_check()
+        except Exception as e:
+            graph_health = {"status": "error", "error": str(e)}
+    else:
+        graph_health = {
+            "status": "unavailable",
+            "detail": "Neo4j not connected (degraded mode)"
+        }
+    
+    graph_ok = graph_health.get("status") == "healthy"
     
     return {
-        "status": "ready" if all_healthy else "not_ready",
-        "timestamp": datetime.utcnow().isoformat(),
+        "status": "ready" if graph_ok else "degraded",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "dependencies": {
             "neo4j": graph_health
         }
@@ -80,3 +93,4 @@ async def liveness_check() -> Dict[str, str]:
     Returns 200 if the process is running.
     """
     return {"status": "alive"}
+

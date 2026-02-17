@@ -9,7 +9,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import hashlib
@@ -185,7 +185,7 @@ class AuditTrail:
         event = AuditEvent(
             event_id=event_id,
             event_type=event_type,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             actor=actor,
             action=action,
             resource=resource,

@@ -5,9 +5,24 @@ Author: PDRI Team
 Version: 1.0.0
 """
 
+import sys
+from unittest.mock import AsyncMock, MagicMock
+
+# ── Mock external drivers before ANY pdri imports ──────────────────────
+_neo4j_mock = MagicMock()
+_neo4j_exceptions = MagicMock()
+_neo4j_exceptions.Neo4jError = type("Neo4jError", (Exception,), {})
+_neo4j_mock.exceptions = _neo4j_exceptions
+
+sys.modules["neo4j"] = _neo4j_mock
+sys.modules["neo4j.exceptions"] = _neo4j_exceptions
+
+sys.modules.setdefault("aiokafka", MagicMock())
+sys.modules.setdefault("aiokafka.errors", MagicMock())
+# ────────────────────────────────────────────────────────────────────────
+
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
 
 
 @pytest.fixture(scope="session")

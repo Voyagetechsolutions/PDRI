@@ -19,7 +19,7 @@ Author: PDRI Team
 Version: 1.0.0
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
@@ -113,11 +113,11 @@ class BaseNode(BaseModel):
     
     # Metadata
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When this node was created"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Last update timestamp"
     )
     tags: List[str] = Field(
@@ -376,7 +376,7 @@ class GraphEdge(BaseModel):
         description="Relationship strength/importance"
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When this edge was created"
     )
     last_activity: Optional[datetime] = Field(

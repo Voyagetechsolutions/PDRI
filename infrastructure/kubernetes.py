@@ -47,11 +47,16 @@ class HorizontalPodAutoscaler:
     target_memory_percent: int = 80
 
 
-# Default PDRI services
+# Image version — override via PDRI_IMAGE_VERSION env var or CI build
+import os
+PDRI_IMAGE_VERSION = os.getenv("PDRI_IMAGE_VERSION", "1.0.0")
+
+
+# Default PDRI services — pinned to PDRI_IMAGE_VERSION
 PDRI_SERVICES = {
     "pdri-api": ServiceSpec(
         name="pdri-api",
-        image="pdri/api:latest",
+        image=f"pdri/api:{PDRI_IMAGE_VERSION}",
         replicas=3,
         port=8000,
         health_path="/api/v2/health",
@@ -62,7 +67,7 @@ PDRI_SERVICES = {
     ),
     "pdri-worker": ServiceSpec(
         name="pdri-worker",
-        image="pdri/worker:latest",
+        image=f"pdri/worker:{PDRI_IMAGE_VERSION}",
         replicas=2,
         cpu_limit="2000m",
         memory_limit="4Gi",
@@ -72,7 +77,7 @@ PDRI_SERVICES = {
     ),
     "pdri-ml": ServiceSpec(
         name="pdri-ml",
-        image="pdri/ml:latest",
+        image=f"pdri/ml:{PDRI_IMAGE_VERSION}",
         replicas=2,
         cpu_request="500m",
         cpu_limit="4000m",
@@ -83,7 +88,7 @@ PDRI_SERVICES = {
     ),
     "pdri-federation": ServiceSpec(
         name="pdri-federation",
-        image="pdri/federation:latest",
+        image=f"pdri/federation:{PDRI_IMAGE_VERSION}",
         replicas=2,
         port=8002,
         health_path="/health",

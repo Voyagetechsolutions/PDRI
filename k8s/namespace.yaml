@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pdri
+  labels:
+    app.kubernetes.io/name: pdri
+    app.kubernetes.io/part-of: pdri-platform

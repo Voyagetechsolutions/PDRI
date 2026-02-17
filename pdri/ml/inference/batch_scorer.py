@@ -16,7 +16,7 @@ Version: 1.0.0
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
@@ -145,7 +145,7 @@ class BatchScorer:
         job = BatchJob(
             job_id=job_id,
             status="pending",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         self._jobs[job_id] = job
         
@@ -168,7 +168,7 @@ class BatchScorer:
         
         try:
             job.status = "running"
-            job.started_at = datetime.utcnow()
+            job.started_at = datetime.now(timezone.utc)
             
             # Get nodes to process
             if node_ids is None:
@@ -207,7 +207,7 @@ class BatchScorer:
             
             # Create result
             job.status = "completed"
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
             
             duration = (job.completed_at - job.started_at).total_seconds()
             
@@ -224,7 +224,7 @@ class BatchScorer:
         except Exception as e:
             job.status = "failed"
             job.error_message = str(e)
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
     
     async def _get_all_nodes(
         self,
@@ -333,7 +333,7 @@ class BatchScorer:
         Returns:
             BatchResult if completed, None if timeout or not found
         """
-        start = datetime.utcnow()
+        start = datetime.now(timezone.utc)
         
         while True:
             job = self._jobs.get(job_id)
@@ -343,7 +343,7 @@ class BatchScorer:
             if job.status in ("completed", "failed"):
                 return self._results.get(job_id)
             
-            elapsed = (datetime.utcnow() - start).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds()
             if elapsed >= timeout_seconds:
                 return None
             

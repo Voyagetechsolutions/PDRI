@@ -15,7 +15,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -462,7 +462,7 @@ class AnomalyDetector:
                 score=self._score_from_raw(raw_score),
                 raw_score=raw_score,
                 node_id=node_id,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 features_flagged={"current_risk_score": current_score},
                 baseline_values={"avg_score": float(avg_score)},
                 description=f"Risk score spike: +{spike:.1f} points above 7-day average",

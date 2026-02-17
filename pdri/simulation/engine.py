@@ -16,7 +16,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import numpy as np
@@ -51,7 +51,7 @@ class SimulationScenario:
     description: str
     parameters: Dict[str, Any]
     target_nodes: List[str]
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -176,7 +176,7 @@ class SimulationEngine:
         """
         self._result_counter += 1
         result_id = f"sim-{self._result_counter:06d}"
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         
         try:
             # Get current state
@@ -195,6 +195,8 @@ class SimulationEngine:
                 impacts = await self._simulate_config_change(scenario, current_risks)
             elif scenario.scenario_type == ScenarioType.ACCESS_REVOCATION:
                 impacts = await self._simulate_access_revocation(scenario, current_risks)
+            elif scenario.scenario_type == ScenarioType.NEW_REGULATION:
+                impacts = await self._simulate_new_regulation(scenario, current_risks)
             else:
                 impacts = await self._simulate_generic(scenario, current_risks)
             
@@ -208,7 +210,7 @@ class SimulationEngine:
                 result_id=result_id,
                 scenario=scenario,
                 started_at=started_at,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
                 node_impacts=impacts,
                 aggregate_impact=aggregate,
                 recommendations=recommendations,
@@ -220,7 +222,7 @@ class SimulationEngine:
                 result_id=result_id,
                 scenario=scenario,
                 started_at=started_at,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
                 node_impacts=[],
                 aggregate_impact={},
                 recommendations=[],
@@ -470,6 +472,67 @@ class SimulationEngine:
         
         return impacts
     
+    async def _simulate_new_regulation(
+        self,
+        scenario: SimulationScenario,
+        current_risks: Dict[str, float]
+    ) -> List[NodeImpact]:
+        """Simulate new regulation impact on compliance and risk scores.
+
+        Parameters (from scenario.parameters):
+            framework_type: str — e.g. "gdpr", "hipaa"
+            affected_data_types: list[str] — data classifications affected
+            compliance_deadline_days: int — days until enforcement
+            penalty_severity: float — 0.0-1.0 multiplier
+        """
+        params = scenario.parameters
+        affected_types = params.get("affected_data_types", ["confidential", "pii"])
+        penalty_severity = params.get("penalty_severity", 0.5)
+        deadline_days = params.get("compliance_deadline_days", 90)
+
+        # Urgency multiplier: tighter deadline → higher risk
+        urgency = max(0.2, min(1.0, 1.0 - (deadline_days / 365)))
+
+        impacts = []
+        for node_id in scenario.target_nodes:
+            original = current_risks.get(node_id, 50.0)
+
+            # Check if node handles affected data types
+            node_data = {}
+            if hasattr(self.graph_engine, "get_node"):
+                try:
+                    node_data = await self.graph_engine.get_node(node_id) or {}
+                except Exception:
+                    pass
+
+            classification = str(node_data.get("data_classification", "")).lower()
+            is_affected = any(t.lower() in classification for t in affected_types)
+
+            if is_affected:
+                # Affected nodes: significant risk increase
+                base_increase = 25 * penalty_severity * urgency
+            else:
+                # Indirect impact from connected regulated nodes
+                base_increase = 5 * penalty_severity * urgency
+
+            # Propagate to neighbors
+            connected = await self._get_connected_nodes(node_id)
+            propagation_bonus = min(15, len(connected) * 1.5) * urgency
+
+            total_increase = base_increase + propagation_bonus
+            simulated = min(100, original + total_increase)
+
+            impacts.append(NodeImpact(
+                node_id=node_id,
+                original_risk=original,
+                simulated_risk=round(simulated, 1),
+                risk_delta=round(simulated - original, 1),
+                severity=self._classify_severity(simulated - original),
+                impact_path=[node_id] + connected[:3],
+            ))
+
+        return impacts
+    
     async def _simulate_generic(
         self,
         scenario: SimulationScenario,
@@ -585,6 +648,13 @@ class SimulationEngine:
             recommendations.append("Review access controls along attack path")
             recommendations.append("Implement additional monitoring at chokepoints")
             recommendations.append("Consider network micro-segmentation")
+        
+        elif scenario.scenario_type == ScenarioType.NEW_REGULATION:
+            recommendations.append("Map all data assets affected by the new regulation")
+            recommendations.append("Conduct gap analysis against regulation requirements")
+            recommendations.append("Prioritize remediation of non-compliant high-risk nodes")
+            if critical_count > 0:
+                recommendations.append("URGENT: Critical assets require immediate compliance review")
         
         if critical_count >= 3:
             recommendations.insert(0, "⚠️ HIGH BLAST RADIUS: Consider additional isolation measures")

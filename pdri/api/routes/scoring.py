@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from pdri.api.dependencies import get_graph_engine, get_scoring_engine
+from pdri.api.dependencies import require_graph_engine, require_scoring_engine
 from pdri.graph.engine import GraphEngine
 from pdri.scoring.engine import ScoringEngine, ScoringResult
 
@@ -76,7 +76,7 @@ class BatchScoreResponse(BaseModel):
 async def score_entity(
     entity_id: str,
     update_graph: bool = Query(True, description="Update node with new scores"),
-    scoring: ScoringEngine = Depends(get_scoring_engine)
+    scoring: ScoringEngine = Depends(require_scoring_engine)
 ) -> Dict[str, Any]:
     """
     Calculate and return risk scores for an entity.
@@ -117,7 +117,7 @@ async def score_entity(
 )
 async def explain_score(
     entity_id: str,
-    scoring: ScoringEngine = Depends(get_scoring_engine)
+    scoring: ScoringEngine = Depends(require_scoring_engine)
 ) -> Dict[str, Any]:
     """
     Get detailed explanation of risk scores.
@@ -151,7 +151,7 @@ async def explain_score(
 )
 async def batch_score(
     request: BatchScoreRequest,
-    scoring: ScoringEngine = Depends(get_scoring_engine)
+    scoring: ScoringEngine = Depends(require_scoring_engine)
 ) -> Dict[str, Any]:
     """
     Batch score all entities of a type.
@@ -196,7 +196,7 @@ async def batch_score(
 )
 async def score_all(
     update_graph: bool = Query(True),
-    scoring: ScoringEngine = Depends(get_scoring_engine)
+    scoring: ScoringEngine = Depends(require_scoring_engine)
 ) -> Dict[str, Any]:
     """
     Score all entities in the risk graph.
@@ -227,3 +227,67 @@ async def score_all(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Scoring Weights Management
+# =============================================================================
+
+class ScoringWeightsRequest(BaseModel):
+    """Request model for updating scoring weights."""
+    external_connections: float = Field(default=None, ge=0.0, le=1.0)
+    ai_integrations: float = Field(default=None, ge=0.0, le=1.0)
+    data_volume: float = Field(default=None, ge=0.0, le=1.0)
+    privilege_level: float = Field(default=None, ge=0.0, le=1.0)
+    sensitivity: float = Field(default=None, ge=0.0, le=1.0)
+
+
+@router.get(
+    "/weights/current",
+    summary="Get Scoring Weights",
+    description="Get the current risk scoring weights.",
+)
+async def get_scoring_weights(
+    scoring: ScoringEngine = Depends(require_scoring_engine),
+) -> Dict[str, Any]:
+    """Return current scoring weights used by the rules engine."""
+    return {
+        "weights": scoring.rules.weights,
+        "note": "Weights are used to calculate exposure score from individual factors.",
+    }
+
+
+@router.put(
+    "/weights",
+    summary="Update Scoring Weights",
+    description="Update the risk scoring weights (admin only).",
+)
+async def update_scoring_weights(
+    request: ScoringWeightsRequest,
+    scoring: ScoringEngine = Depends(require_scoring_engine),
+) -> Dict[str, Any]:
+    """
+    Update scoring weights at runtime.
+
+    Weights control how individual factors contribute to the
+    exposure score. All weights should be in [0, 1] range.
+    """
+    updated = {}
+    for field_name in ("external_connections", "ai_integrations", "data_volume",
+                       "privilege_level", "sensitivity"):
+        value = getattr(request, field_name, None)
+        if value is not None:
+            scoring.rules.weights[field_name] = value
+            updated[field_name] = value
+
+    if not updated:
+        raise HTTPException(
+            status_code=400, detail="No weight values provided"
+        )
+
+    return {
+        "message": "Scoring weights updated",
+        "updated": updated,
+        "current_weights": scoring.rules.weights,
+    }
+

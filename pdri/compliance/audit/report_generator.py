@@ -9,7 +9,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import json
 
@@ -170,7 +170,7 @@ class ComplianceReportGenerator:
             title=f"{framework.upper()} Compliance Assessment Report",
             framework=framework,
             scope=assessment.scope,
-            generated_at=datetime.utcnow(),
+            generated_at=datetime.now(timezone.utc),
             generated_by="pdri-report-generator",
             executive_summary=executive_summary,
             sections=sections,

@@ -9,7 +9,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 import asyncio
@@ -108,7 +108,9 @@ class ResponseEngine:
         self,
         graph_engine: Any = None,
         audit_trail: Any = None,
-        notification_handler: Callable = None
+        notification_handler: Callable = None,
+        aegis_client: Any = None,
+        dmitry_client: Any = None,
     ):
         """
         Initialize response engine.
@@ -117,10 +119,14 @@ class ResponseEngine:
             graph_engine: Graph database for actions
             audit_trail: Audit trail for logging
             notification_handler: Handler for notifications
+            aegis_client: AegisClient instance for incident reporting
+            dmitry_client: DmitryBackendClient for NLP threat analysis
         """
         self.graph_engine = graph_engine
         self.audit_trail = audit_trail
         self.notification_handler = notification_handler
+        self.aegis_client = aegis_client
+        self.dmitry_client = dmitry_client
         
         self._action_counter = 0
         self._actions: Dict[str, ResponseAction] = {}
@@ -180,7 +186,7 @@ class ResponseEngine:
             target_type=event.node_type if event else "unknown",
             priority=priority,
             status=ResponseStatus.PENDING,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             requires_approval=requires_approval,
             metadata=metadata or {},
         )
@@ -200,7 +206,7 @@ class ResponseEngine:
     async def _execute_action(self, action: ResponseAction) -> ResponseAction:
         """Execute an action."""
         action.status = ResponseStatus.EXECUTING
-        action.executed_at = datetime.utcnow()
+        action.executed_at = datetime.now(timezone.utc)
         
         handler = self._handlers.get(action.action_type)
         if not handler:
@@ -212,7 +218,7 @@ class ResponseEngine:
             result = await handler(action)
             action.status = ResponseStatus.COMPLETED
             action.result = result
-            action.completed_at = datetime.utcnow()
+            action.completed_at = datetime.now(timezone.utc)
             
             # Log to audit trail
             if self.audit_trail:
@@ -226,12 +232,19 @@ class ResponseEngine:
                     details={"action_id": action.action_id, "result": result},
                 )
             
+            # Report to external integrations (fire-and-forget)
+            await asyncio.gather(
+                self._report_to_aegis(action),
+                self._report_to_dmitry(action),
+                return_exceptions=True,
+            )
+            
             self.logger.info(f"Action {action.action_id} completed successfully")
             
         except Exception as e:
             action.status = ResponseStatus.FAILED
             action.error = str(e)
-            action.completed_at = datetime.utcnow()
+            action.completed_at = datetime.now(timezone.utc)
             self.logger.error(f"Action {action.action_id} failed: {e}")
         
         return action
@@ -246,7 +259,7 @@ class ResponseEngine:
         return {
             "alerted": True,
             "target": action.target_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     
     async def _handle_restrict(self, action: ResponseAction) -> Dict[str, Any]:
@@ -424,3 +437,76 @@ class ResponseEngine:
             "registered_handlers": list(self._handlers.keys()),
             "playbook_count": len(self._playbooks),
         }
+    
+    async def _report_to_aegis(self, action: ResponseAction) -> None:
+        """
+        Report a completed response action to AegisAI as an incident.
+        
+        Silently skips if no aegis_client is configured or if the report
+        fails (does not block the response pipeline).
+        """
+        if not self.aegis_client:
+            return
+        
+        try:
+            from pdri.integrations.aegis_transformer import build_aegis_incident_payload
+            
+            incident = build_aegis_incident_payload(
+                entity_id=action.target_id,
+                action_type=action.action_type,
+                severity=action.priority.name.lower(),
+                description=(
+                    f"PDRI automated response: {action.action_type} on "
+                    f"{action.target_type} '{action.target_id}'"
+                ),
+                risk_score=action.metadata.get("risk_score"),
+                recommendations=action.metadata.get("recommendations"),
+                metadata={
+                    "action_id": action.action_id,
+                    "result": action.result,
+                },
+            )
+            
+            result = await self.aegis_client.report_incident(incident)
+            self.logger.info(
+                f"Reported action {action.action_id} to AegisAI — "
+                f"ticket: {result.get('ticket_id', 'n/a')}"
+            )
+        except Exception as e:
+            # Never let Aegis reporting failure block the response pipeline
+            self.logger.warning(
+                f"Failed to report action {action.action_id} to AegisAI: {e}"
+            )
+
+    async def _report_to_dmitry(self, action: ResponseAction) -> None:
+        """
+        Send a completed action to Dmitry for NLP threat analysis.
+
+        Dmitry enriches the action with natural language context and
+        stores it in its action logs. Silently skips if no dmitry_client
+        is configured or if the call fails.
+        """
+        if not self.dmitry_client:
+            return
+
+        try:
+            description = (
+                f"PDRI Response Engine executed '{action.action_type}' "
+                f"on {action.target_type} '{action.target_id}'. "
+            )
+            if action.result:
+                description += f"Result: {action.result}. "
+            description += (
+                f"Priority: {action.priority.name}. "
+                "Analyze the threat and recommend follow-up actions."
+            )
+
+            result = await self.dmitry_client.analyze_threat(description)
+            self.logger.info(
+                f"Reported action {action.action_id} to Dmitry — "
+                f"intent: {result.get('intent', 'n/a')}"
+            )
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to report action {action.action_id} to Dmitry: {e}"
+            )

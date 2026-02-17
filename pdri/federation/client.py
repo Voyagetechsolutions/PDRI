@@ -15,7 +15,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import numpy as np
 import hashlib
@@ -175,7 +175,7 @@ class FederationClient:
             update_id=f"{self.config.organization_id}-{self._update_counter:06d}",
             organization_id=self.config.organization_id,
             model_version=self._last_global_version or "v1",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             gradients=gradients,
             sample_count=len(training_data) if hasattr(training_data, '__len__') else 0,
             local_metrics=local_metrics,
@@ -285,7 +285,7 @@ class FederationClient:
             "fingerprint_id": pattern_hash,
             "pattern_type": "high_risk",
             "feature_signature": feature_pattern,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "organization": self.config.organization_id[:3] + "***",  # Anonymized
         }
     
@@ -345,9 +345,9 @@ class FederationClient:
         # Simulate receiving global update
         
         return GlobalUpdate(
-            update_id=f"global-{datetime.utcnow().strftime('%Y%m%d%H')}",
+            update_id=f"global-{datetime.now(timezone.utc).strftime('%Y%m%d%H')}",
             model_version="v1.1",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             aggregated_weights={},  # Would contain actual weights
             global_metrics={"accuracy": 0.85, "auc_roc": 0.92},
             participating_orgs=15,

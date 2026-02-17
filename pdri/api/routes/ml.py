@@ -145,9 +145,9 @@ async def predict_trajectory(request: TrajectoryRequest):
     
     Returns trend analysis and forecast.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     
     return TrajectoryResponse(
         node_id=request.node_id,

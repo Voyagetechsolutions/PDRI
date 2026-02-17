@@ -21,13 +21,14 @@ Version: 1.0.0
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
 from shared.schemas.events import RiskScore, RiskTrajectory
 from pdri.graph.engine import GraphEngine
 from pdri.scoring.rules import RiskScoringRules, ScoringFactors
+from pdri.scoring.score_cache import ScoreCache
 
 
 logger = logging.getLogger(__name__)
@@ -99,7 +100,8 @@ class ScoringEngine:
     def __init__(
         self,
         graph_engine: GraphEngine,
-        rules: Optional[RiskScoringRules] = None
+        rules: Optional[RiskScoringRules] = None,
+        score_cache: Optional[ScoreCache] = None,
     ):
         """
         Initialize the scoring engine.
@@ -107,16 +109,19 @@ class ScoringEngine:
         Args:
             graph_engine: Connected GraphEngine instance
             rules: Optional custom scoring rules
+            score_cache: Optional Redis score cache
         """
         self.graph = graph_engine
         self.rules = rules or RiskScoringRules()
+        self.cache = score_cache
         self._score_history: Dict[str, List[float]] = {}
     
     async def score_entity(
         self,
         entity_id: str,
         events: Optional[List[Dict[str, Any]]] = None,
-        update_graph: bool = True
+        update_graph: bool = True,
+        bypass_cache: bool = False,
     ) -> ScoringResult:
         """
         Calculate and return risk scores for an entity.
@@ -125,6 +130,7 @@ class ScoringEngine:
             entity_id: Graph node identifier
             events: Optional list of recent events for this entity
             update_graph: Whether to update node with new scores
+            bypass_cache: Skip cache lookup and force recalculation
             
         Returns:
             ScoringResult with all scores and factors
@@ -132,6 +138,23 @@ class ScoringEngine:
         Raises:
             ValueError: If entity not found
         """
+        # Check cache first
+        if not bypass_cache and self.cache and self.cache.is_available:
+            cached = await self.cache.get(entity_id)
+            if cached:
+                logger.debug(f"Returning cached score for {entity_id}")
+                return ScoringResult(
+                    entity_id=cached["entity_id"],
+                    exposure_score=cached["exposure_score"],
+                    volatility_score=cached["volatility_score"],
+                    sensitivity_likelihood=cached["sensitivity_likelihood"],
+                    composite_score=cached["composite_score"],
+                    risk_level=cached["risk_level"],
+                    factors=ScoringFactors(**cached.get("factors", {})),
+                    calculated_at=datetime.fromisoformat(cached["calculated_at"]),
+                    scoring_version=cached.get("scoring_version", "1.0.0"),
+                )
+        
         logger.debug(f"Scoring entity: {entity_id}")
         
         # Get node data with relationships from graph
@@ -171,7 +194,7 @@ class ScoringEngine:
             composite_score=round(composite, 4),
             risk_level=risk_level,
             factors=factors,
-            calculated_at=datetime.utcnow()
+            calculated_at=datetime.now(timezone.utc)
         )
         
         # Update history for volatility tracking
@@ -190,6 +213,30 @@ class ScoringEngine:
             f"Scored entity {entity_id}: composite={result.composite_score:.2f} "
             f"({result.risk_level})"
         )
+        
+        # Store in cache
+        if self.cache and self.cache.is_available:
+            cache_data = {
+                "entity_id": result.entity_id,
+                "exposure_score": result.exposure_score,
+                "volatility_score": result.volatility_score,
+                "sensitivity_likelihood": result.sensitivity_likelihood,
+                "composite_score": result.composite_score,
+                "risk_level": result.risk_level,
+                "scoring_version": result.scoring_version,
+                "calculated_at": result.calculated_at.isoformat(),
+                "factors": {
+                    "external_connection_factor": result.factors.external_connection_factor,
+                    "ai_integration_factor": result.factors.ai_integration_factor,
+                    "data_volume_factor": result.factors.data_volume_factor,
+                    "privilege_level_factor": result.factors.privilege_level_factor,
+                    "public_exposure_factor": result.factors.public_exposure_factor,
+                    "name_heuristic_factor": result.factors.name_heuristic_factor,
+                    "data_classification_factor": result.factors.data_classification_factor,
+                    "sensitivity_tag_factor": result.factors.sensitivity_tag_factor,
+                },
+            }
+            await self.cache.set(entity_id, cache_data)
         
         return result
     
@@ -292,7 +339,7 @@ class ScoringEngine:
         return {
             "distribution": distribution,
             "high_risk_entities": high_risk,
-            "calculated_at": datetime.utcnow().isoformat()
+            "calculated_at": datetime.now(timezone.utc).isoformat()
         }
     
     def explain_score(self, result: ScoringResult) -> Dict[str, Any]:

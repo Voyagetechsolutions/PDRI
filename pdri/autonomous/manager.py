@@ -9,7 +9,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 import asyncio
@@ -121,7 +121,7 @@ class AutonomousRiskManager:
         self._event_counter = 0
         self._events: List[RiskEvent] = []
         self._actions_this_hour: int = 0
-        self._hour_start: datetime = datetime.utcnow()
+        self._hour_start: datetime = datetime.now(timezone.utc)
         
         self._risk_history: Dict[str, List[float]] = {}  # node_id -> scores
         self._current_states: Dict[str, RiskState] = {}
@@ -163,7 +163,7 @@ class AutonomousRiskManager:
     async def _check_all_risks(self) -> None:
         """Check risks across all monitored entities."""
         # Reset hourly counter if needed
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if (now - self._hour_start).total_seconds() > 3600:
             self._actions_this_hour = 0
             self._hour_start = now
@@ -175,9 +175,20 @@ class AutonomousRiskManager:
             await self._process_node_risk(node)
     
     async def _get_high_risk_nodes(self) -> List[Dict[str, Any]]:
-        """Get nodes with elevated risk."""
-        # In production, would query graph/scoring engine
-        return []
+        """Get nodes with elevated risk from the graph engine."""
+        if self.graph_engine is None:
+            return []
+        
+        try:
+            # Use the lowest threshold so we capture all nodes to evaluate
+            nodes = await self.graph_engine.get_high_risk_nodes(
+                threshold=self.thresholds.elevated / 100.0,  # Convert to 0-1 scale
+                limit=100,
+            )
+            return nodes
+        except Exception as e:
+            logger.error(f"Failed to query high-risk nodes: {e}")
+            return []
     
     async def _process_node_risk(self, node: Dict[str, Any]) -> None:
         """Process risk for a single node."""
@@ -260,7 +271,7 @@ class AutonomousRiskManager:
         self._event_counter += 1
         event = RiskEvent(
             event_id=f"risk-{self._event_counter:08d}",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             node_id=node_id,
             node_type=node_type,
             risk_score=risk_score,

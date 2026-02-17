@@ -25,11 +25,23 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+
+    _limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+    HAS_SLOWAPI = True
+except ImportError:
+    _limiter = None
+    HAS_SLOWAPI = False
 
 from pdri.config import settings
 from pdri.api.dependencies import ServiceContainer
+from pdri.api.auth import get_current_user, require_role
 from pdri.api.routes import (
     nodes_router,
     scoring_router,
@@ -38,12 +50,10 @@ from pdri.api.routes import (
 )
 
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper()),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+# Configure structured logging
+from pdri.logging import setup_logging, get_logger, RequestLoggingMiddleware
+setup_logging(level=settings.log_level, json_output=not getattr(settings, 'debug', False))
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -86,8 +96,9 @@ def create_app() -> FastAPI:
             "- AI exposure path detection\n"
             "- Predictive risk analytics\n\n"
             "## Authentication\n"
-            "Currently open for development. "
-            "Production will require API key authentication."
+            "All endpoints except `/health/*` require a valid JWT token. "
+            "Include `Authorization: Bearer <token>` in request headers.\n\n"
+            "Roles: `admin`, `analyst`, `viewer`"
         ),
         version=settings.app_version,
         lifespan=lifespan,
@@ -97,19 +108,66 @@ def create_app() -> FastAPI:
     )
     
     # Add CORS middleware
+    allowed_origins = (
+        settings.cors_allowed_origins.split(",")
+        if hasattr(settings, "cors_allowed_origins") and settings.cors_allowed_origins
+        else ["*"]
+    )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure for production
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    
+    # Add rate limiting
+    if HAS_SLOWAPI and _limiter:
+        app.state.limiter = _limiter
+        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    
+    # Add audit middleware for mutation logging
+    from pdri.api.audit_middleware import AuditMiddleware
+    app.add_middleware(AuditMiddleware)
+    
+    # Add structured request logging middleware
+    app.add_middleware(RequestLoggingMiddleware)
+    
+    # Add mTLS middleware (enabled via PDRI_MTLS_ENABLED env var)
+    from pdri.api.mtls import get_mtls_config_from_env, MTLSMiddleware
+    mtls_config = get_mtls_config_from_env()
+    if mtls_config.enabled:
+        app.add_middleware(MTLSMiddleware, config=mtls_config)
+        logger.info("mTLS middleware enabled")
+    
+    # Add Prometheus metrics
+    from pdri.api.metrics import HAS_PROMETHEUS, metrics_endpoint
+    if HAS_PROMETHEUS:
+        from pdri.api.metrics import MetricsMiddleware
+        app.add_middleware(MetricsMiddleware)
+        app.add_route("/metrics", metrics_endpoint, methods=["GET"])
+    
+    # Initialize OpenTelemetry tracing
+    from pdri.api.tracing import setup_tracing, instrument_fastapi
+    tracer = setup_tracing(service_name="pdri-api", service_version=settings.app_version)
+    if tracer:
+        instrument_fastapi(app)
     
     # Register routers
     app.include_router(health_router)
     app.include_router(nodes_router)
     app.include_router(scoring_router)
     app.include_router(analytics_router)
+    
+    # WebSocket for real-time risk events
+    from pdri.api.websocket import router as ws_router
+    app.include_router(ws_router)
+    
+    # AegisAI webhook endpoints (inbound findings)
+    if settings.aegis_enabled:
+        from pdri.api.routes.aegis_webhooks import router as aegis_webhook_router
+        app.include_router(aegis_webhook_router)
+        logger.info("AegisAI webhook endpoints enabled")
     
     @app.get("/", tags=["Root"])
     async def root():

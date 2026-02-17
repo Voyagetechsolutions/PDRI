@@ -15,7 +15,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -184,7 +184,7 @@ class FeatureEngineer:
         Returns:
             FeatureVector with all computed features
         """
-        timestamp = timestamp or datetime.utcnow()
+        timestamp = timestamp or datetime.now(timezone.utc)
         
         # Get node data from graph
         node_data = await self._get_node_data(node_id)

@@ -15,7 +15,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
@@ -196,7 +196,7 @@ class RiskPredictor:
             risk_class=risk_class,
             risk_label=risk_label,
             confidence=confidence,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             model_version=self._model_version or "unknown",
             features_used=features,
             explanation=explanation,

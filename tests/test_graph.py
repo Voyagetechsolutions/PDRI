@@ -115,9 +115,13 @@ class TestGraphEngine:
     @pytest.fixture
     def mock_driver(self):
         """Create mock Neo4j driver."""
-        driver = AsyncMock()
+        driver = MagicMock()
         session = AsyncMock()
-        driver.session.return_value.__aenter__.return_value = session
+        # driver.session() is a sync call that returns an async context manager
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=session)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        driver.session.return_value = ctx
         return driver, session
     
     @pytest.mark.asyncio

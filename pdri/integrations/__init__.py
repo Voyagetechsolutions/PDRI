@@ -1,20 +1,33 @@
 """
-Integration Stubs Package
-=========================
+Integrations Package
+====================
 
-Stub implementations for Shadow AI and Dmitry integrations.
+Client libraries for PDRI ↔ external system integration.
 
-These stubs allow PDRI to function independently while providing
-integration points for the full platform.
+    - ShadowAIProducer:      Shadow AI event producer
+    - DmitryBackendClient:   PDRI → Dmitry AI backend
+    - DmitryPDRIClient:      Dmitry → PDRI API
+    - DmitryClient:          Alias for DmitryPDRIClient (backward-compat)
+    - AegisClient:           PDRI → AegisAI platform
 
 Author: PDRI Team
-Version: 1.0.0
+Version: 2.0.0
 """
 
 from pdri.integrations.shadow_ai import ShadowAIProducer
-from pdri.integrations.dmitry_client import DmitryClient
+from pdri.integrations.dmitry_client import (
+    DmitryBackendClient,
+    DmitryPDRIClient,
+    DmitryClient,
+    MockDmitryClient,
+)
+from pdri.integrations.aegis_client import AegisClient
 
 __all__ = [
     "ShadowAIProducer",
+    "DmitryBackendClient",
+    "DmitryPDRIClient",
     "DmitryClient",
+    "MockDmitryClient",
+    "AegisClient",
 ]

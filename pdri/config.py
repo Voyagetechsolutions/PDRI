@@ -22,7 +22,7 @@ Version: 1.0.0
 from functools import lru_cache
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, SecretStr
 
 
 class Settings(BaseSettings):
@@ -54,6 +54,27 @@ class Settings(BaseSettings):
     
     api_host: str = Field(default="0.0.0.0", description="API server host")
     api_port: int = Field(default=8000, description="API server port")
+    cors_allowed_origins: str = Field(
+        default="",
+        description="Comma-separated allowed CORS origins (empty = allow all)"
+    )
+    
+    # =========================================================================
+    # Security / Secrets
+    # =========================================================================
+    
+    jwt_secret_key: SecretStr = Field(
+        default="pdri-dev-secret-change-in-production",
+        description="Secret key for JWT token signing"
+    )
+    secret_provider: str = Field(
+        default="env",
+        description="Secrets provider: env, file, vault"
+    )
+    vault_url: str = Field(
+        default="",
+        description="HashiCorp Vault URL when secret_provider=vault"
+    )
     
     # =========================================================================
     # PostgreSQL
@@ -138,8 +159,58 @@ class Settings(BaseSettings):
         description="Whether Dmitry integration is enabled"
     )
     dmitry_api_url: str = Field(
-        default="http://localhost:8002",
-        description="Dmitry API URL"
+        default="http://127.0.0.1:8765",
+        description="Dmitry AI backend URL"
+    )
+    dmitry_timeout: float = Field(
+        default=30.0,
+        ge=5.0,
+        le=120.0,
+        description="Timeout for Dmitry /message calls (seconds)"
+    )
+    dmitry_circuit_threshold: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Number of failures before Dmitry circuit breaker opens"
+    )
+    
+    aegis_enabled: bool = Field(
+        default=False,
+        description="Whether AegisAI integration is enabled"
+    )
+    aegis_api_url: str = Field(
+        default="http://localhost:8003",
+        description="AegisAI API URL"
+    )
+    aegis_api_key: str = Field(
+        default="",
+        description="AegisAI API key for authentication"
+    )
+    aegis_sync_interval_minutes: int = Field(
+        default=15,
+        ge=1,
+        le=1440,
+        description="AegisAI sync interval in minutes"
+    )
+    aegis_webhook_secret: str = Field(
+        default="",
+        description="Shared HMAC-SHA256 secret for Aegis webhook signature verification"
+    )
+    
+    # =========================================================================
+    # Redis (Score Cache)
+    # =========================================================================
+    
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        description="Redis connection URL"
+    )
+    redis_cache_ttl: int = Field(
+        default=300,
+        ge=10,
+        le=3600,
+        description="Score cache TTL in seconds"
     )
     
     # =========================================================================

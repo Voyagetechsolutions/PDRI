@@ -9,7 +9,7 @@ Version: 1.0.0
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import hashlib
 import json
@@ -90,7 +90,7 @@ class ThreatFingerprintDatabase:
         if fp_id in self._fingerprints:
             # Update existing
             fp = self._fingerprints[fp_id]
-            fp.last_seen = datetime.utcnow()
+            fp.last_seen = datetime.now(timezone.utc)
             fp.observation_count += 1
             # Increment source count if new source
             fp.source_count = min(fp.source_count + 1, 1000)  # Cap
@@ -103,8 +103,8 @@ class ThreatFingerprintDatabase:
             pattern_type=pattern_type,
             feature_signature=feature_signature,
             severity=severity,
-            first_seen=datetime.utcnow(),
-            last_seen=datetime.utcnow(),
+            first_seen=datetime.now(timezone.utc),
+            last_seen=datetime.now(timezone.utc),
             observation_count=1,
             source_count=1,
             confidence=0.5,
@@ -137,7 +137,7 @@ class ThreatFingerprintDatabase:
         source_factor = min(1.0, fp.source_count / 10)
         
         # Recent = higher confidence
-        age_days = (datetime.utcnow() - fp.last_seen).days
+        age_days = (datetime.now(timezone.utc) - fp.last_seen).days
         recency_factor = max(0, 1 - age_days / 365)
         
         return 0.3 * obs_factor + 0.5 * source_factor + 0.2 * recency_factor

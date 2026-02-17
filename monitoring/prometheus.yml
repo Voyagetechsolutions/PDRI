@@ -1,0 +1,22 @@
+# Prometheus configuration for PDRI
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'pdri-api'
+    static_configs:
+      - targets: ['pdri-api:8000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'pdri-federation'
+    static_configs:
+      - targets: ['pdri-federation:8002']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
