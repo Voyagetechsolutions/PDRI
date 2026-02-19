@@ -315,7 +315,7 @@ class PCIDSSAssessor:
         recommendations = []
 
         if req.requirement_id == "5":
-            findings.append("Shadow AI monitoring detects unsanctioned software")
+            findings.append("Aegis AI monitoring detects unsanctioned software")
             evidence.append("Unsanctioned tool events generated and scored")
             score = 75
             recommendations.append("Integrate endpoint protection status into risk graph")

@@ -1,14 +1,14 @@
 """
-Shadow AI Integration - Event Producer
+Aegis AI Integration - Event Producer
 ======================================
 
-Stub implementation for Shadow AI event production.
+Stub implementation for Aegis AI event production.
 
-In the full platform, Shadow AI detects AI tool usage and
+In the full platform, Aegis AI detects AI tool usage and
 produces security events to the Kafka bus for PDRI consumption.
 
 This stub provides:
-    - MockShadowAIProducer for testing
+    - MockAegisAIProducer for testing
     - Event generation utilities
     - Kafka producer integration
 
@@ -38,31 +38,31 @@ from shared.schemas.events import (
 logger = logging.getLogger(__name__)
 
 
-class ShadowAIProducer:
+class AegisAIProducer:
     """
-    Kafka producer for Shadow AI events.
-    
+    Kafka producer for Aegis AI events.
+
     Produces security events to the Kafka topic for PDRI consumption.
-    This is the integration point where Shadow AI sends detected
+    This is the integration point where Aegis AI sends detected
     AI usage events.
-    
+
     Usage:
-        async with ShadowAIProducer() as producer:
+        async with AegisAIProducer() as producer:
             await producer.send_ai_data_access(
                 ai_tool_id="chatgpt-001",
                 target_id="customer-db",
                 identity_id="user-123"
             )
     """
-    
+
     def __init__(
         self,
         bootstrap_servers: Optional[str] = None,
         topic: Optional[str] = None
     ):
         """
-        Initialize the Shadow AI producer.
-        
+        Initialize the Aegis AI producer.
+
         Args:
             bootstrap_servers: Kafka servers (defaults to config)
             topic: Target topic (defaults to config)
@@ -72,59 +72,59 @@ class ShadowAIProducer:
         )
         self.topic = topic or settings.kafka_security_events_topic
         self._producer: Optional[AIOKafkaProducer] = None
-    
+
     async def start(self) -> None:
         """Start the Kafka producer."""
-        logger.info(f"Starting Shadow AI producer for topic '{self.topic}'")
-        
+        logger.info(f"Starting Aegis AI producer for topic '{self.topic}'")
+
         self._producer = AIOKafkaProducer(
             bootstrap_servers=self.bootstrap_servers,
             value_serializer=lambda v: json.dumps(v).encode("utf-8")
         )
         await self._producer.start()
-        
-        logger.info("Shadow AI producer started")
-    
+
+        logger.info("Aegis AI producer started")
+
     async def stop(self) -> None:
         """Stop the Kafka producer."""
         if self._producer:
             await self._producer.stop()
             self._producer = None
-            logger.info("Shadow AI producer stopped")
-    
-    async def __aenter__(self) -> "ShadowAIProducer":
+            logger.info("Aegis AI producer stopped")
+
+    async def __aenter__(self) -> "AegisAIProducer":
         await self.start()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         await self.stop()
-    
+
     async def send_event(self, event: SecurityEvent) -> bool:
         """
         Send a security event to Kafka.
-        
+
         Args:
             event: SecurityEvent to send
-            
+
         Returns:
             True if sent successfully
         """
         if not self._producer:
             raise RuntimeError("Producer not started")
-        
+
         try:
             message = event.to_kafka_message()
             await self._producer.send_and_wait(self.topic, message)
-            
+
             logger.debug(
                 f"Sent event {event.event_id} ({event.event_type.value})"
             )
             return True
-            
+
         except KafkaError as e:
             logger.error(f"Failed to send event: {e}")
             return False
-    
+
     async def send_ai_data_access(
         self,
         ai_tool_id: str,
@@ -136,9 +136,9 @@ class ShadowAIProducer:
     ) -> SecurityEvent:
         """
         Send an AI data access event.
-        
+
         Call when an AI tool accesses a data store.
-        
+
         Args:
             ai_tool_id: ID of the AI tool
             target_id: ID of the data store accessed
@@ -146,15 +146,15 @@ class ShadowAIProducer:
             sensitivity_tags: Optional sensitivity indicators
             data_volume: Optional data volume estimate
             metadata: Additional event metadata
-            
+
         Returns:
             The created SecurityEvent
         """
         tags = [SensitivityTag(t) for t in (sensitivity_tags or [])]
-        
+
         event = SecurityEvent(
             event_type=SecurityEventType.AI_DATA_ACCESS,
-            source_system_id="shadow-ai",
+            source_system_id="aegis-ai",
             target_entity_id=target_id,
             identity_id=ai_tool_id,
             sensitivity_tags=tags,
@@ -164,13 +164,13 @@ class ShadowAIProducer:
             metadata={
                 **(metadata or {}),
                 "ai_tool_id": ai_tool_id,
-                "detected_by": "shadow-ai"
+                "detected_by": "aegis-ai"
             }
         )
-        
+
         await self.send_event(event)
         return event
-    
+
     async def send_unsanctioned_ai_detection(
         self,
         tool_name: str,
@@ -181,22 +181,22 @@ class ShadowAIProducer:
     ) -> SecurityEvent:
         """
         Send an unsanctioned AI tool detection event.
-        
+
         Call when an unapproved AI tool is detected.
-        
+
         Args:
             tool_name: Name of the unsanctioned tool
             vendor: Tool vendor if known
             user_identity: User who used the tool
             data_accessed: Data that was accessed
             metadata: Additional event metadata
-            
+
         Returns:
             The created SecurityEvent
         """
         event = SecurityEvent(
             event_type=SecurityEventType.UNSANCTIONED_AI_TOOL,
-            source_system_id="shadow-ai",
+            source_system_id="aegis-ai",
             target_entity_id=data_accessed,
             identity_id=user_identity,
             sensitivity_tags=[SensitivityTag.UNKNOWN],
@@ -207,13 +207,13 @@ class ShadowAIProducer:
                 "tool_name": tool_name,
                 "vendor": vendor or "Unknown",
                 "sanctioned": False,
-                "detection_source": "shadow-ai"
+                "detection_source": "aegis-ai"
             }
         )
-        
+
         await self.send_event(event)
         return event
-    
+
     async def send_ai_prompt_sensitive(
         self,
         ai_tool_id: str,
@@ -224,21 +224,21 @@ class ShadowAIProducer:
     ) -> SecurityEvent:
         """
         Send alert for sensitive data in AI prompt.
-        
+
         Call when sensitive data is detected in an AI prompt/request.
-        
+
         Args:
             ai_tool_id: AI tool receiving the prompt
             source_service: Service sending the prompt
             sensitivity_tags: Detected sensitivity types
             data_volume: Estimated data size
             metadata: Additional metadata
-            
+
         Returns:
             The created SecurityEvent
         """
         tags = [SensitivityTag(t) for t in sensitivity_tags]
-        
+
         event = SecurityEvent(
             event_type=SecurityEventType.AI_PROMPT_SENSITIVE,
             source_system_id=source_service,
@@ -254,40 +254,45 @@ class ShadowAIProducer:
                 "ai_tool_id": ai_tool_id
             }
         )
-        
+
         await self.send_event(event)
         return event
 
 
-class MockShadowAIProducer(ShadowAIProducer):
+class MockAegisAIProducer(AegisAIProducer):
     """
     Mock producer for testing without Kafka.
-    
+
     Stores events in memory instead of sending to Kafka.
     """
-    
+
     def __init__(self):
         super().__init__()
         self.events: List[SecurityEvent] = []
-    
+
     async def start(self) -> None:
         """Mock start - no-op."""
-        logger.info("Mock Shadow AI producer started")
-    
+        logger.info("Mock Aegis AI producer started")
+
     async def stop(self) -> None:
         """Mock stop - no-op."""
-        logger.info("Mock Shadow AI producer stopped")
-    
+        logger.info("Mock Aegis AI producer stopped")
+
     async def send_event(self, event: SecurityEvent) -> bool:
         """Store event in memory."""
         self.events.append(event)
         logger.debug(f"Mock stored event {event.event_id}")
         return True
-    
+
     def get_events(self) -> List[SecurityEvent]:
         """Get all stored events."""
         return self.events
-    
+
     def clear_events(self) -> None:
         """Clear stored events."""
         self.events.clear()
+
+
+# Backward compatibility aliases
+ShadowAIProducer = AegisAIProducer
+MockShadowAIProducer = MockAegisAIProducer

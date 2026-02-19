@@ -109,24 +109,22 @@ class ResponseEngine:
         graph_engine: Any = None,
         audit_trail: Any = None,
         notification_handler: Callable = None,
-        aegis_client: Any = None,
-        dmitry_client: Any = None,
+        event_publisher: Callable = None,
     ):
         """
         Initialize response engine.
-        
+
         Args:
             graph_engine: Graph database for actions
             audit_trail: Audit trail for logging
             notification_handler: Handler for notifications
-            aegis_client: AegisClient instance for incident reporting
-            dmitry_client: DmitryBackendClient for NLP threat analysis
+            event_publisher: Optional callback to publish response events
+                            (Platform can subscribe to these)
         """
         self.graph_engine = graph_engine
         self.audit_trail = audit_trail
         self.notification_handler = notification_handler
-        self.aegis_client = aegis_client
-        self.dmitry_client = dmitry_client
+        self.event_publisher = event_publisher
         
         self._action_counter = 0
         self._actions: Dict[str, ResponseAction] = {}
@@ -231,14 +229,17 @@ class ResponseEngine:
                     outcome="success",
                     details={"action_id": action.action_id, "result": result},
                 )
-            
-            # Report to external integrations (fire-and-forget)
-            await asyncio.gather(
-                self._report_to_aegis(action),
-                self._report_to_dmitry(action),
-                return_exceptions=True,
-            )
-            
+
+            # Publish event for Platform to consume (if configured)
+            if self.event_publisher:
+                try:
+                    await self.event_publisher({
+                        "event_type": "RESPONSE_ACTION_COMPLETED",
+                        "action": action.to_dict(),
+                    })
+                except Exception as e:
+                    self.logger.warning(f"Failed to publish action event: {e}")
+
             self.logger.info(f"Action {action.action_id} completed successfully")
             
         except Exception as e:
@@ -438,75 +439,3 @@ class ResponseEngine:
             "playbook_count": len(self._playbooks),
         }
     
-    async def _report_to_aegis(self, action: ResponseAction) -> None:
-        """
-        Report a completed response action to AegisAI as an incident.
-        
-        Silently skips if no aegis_client is configured or if the report
-        fails (does not block the response pipeline).
-        """
-        if not self.aegis_client:
-            return
-        
-        try:
-            from pdri.integrations.aegis_transformer import build_aegis_incident_payload
-            
-            incident = build_aegis_incident_payload(
-                entity_id=action.target_id,
-                action_type=action.action_type,
-                severity=action.priority.name.lower(),
-                description=(
-                    f"PDRI automated response: {action.action_type} on "
-                    f"{action.target_type} '{action.target_id}'"
-                ),
-                risk_score=action.metadata.get("risk_score"),
-                recommendations=action.metadata.get("recommendations"),
-                metadata={
-                    "action_id": action.action_id,
-                    "result": action.result,
-                },
-            )
-            
-            result = await self.aegis_client.report_incident(incident)
-            self.logger.info(
-                f"Reported action {action.action_id} to AegisAI — "
-                f"ticket: {result.get('ticket_id', 'n/a')}"
-            )
-        except Exception as e:
-            # Never let Aegis reporting failure block the response pipeline
-            self.logger.warning(
-                f"Failed to report action {action.action_id} to AegisAI: {e}"
-            )
-
-    async def _report_to_dmitry(self, action: ResponseAction) -> None:
-        """
-        Send a completed action to Dmitry for NLP threat analysis.
-
-        Dmitry enriches the action with natural language context and
-        stores it in its action logs. Silently skips if no dmitry_client
-        is configured or if the call fails.
-        """
-        if not self.dmitry_client:
-            return
-
-        try:
-            description = (
-                f"PDRI Response Engine executed '{action.action_type}' "
-                f"on {action.target_type} '{action.target_id}'. "
-            )
-            if action.result:
-                description += f"Result: {action.result}. "
-            description += (
-                f"Priority: {action.priority.name}. "
-                "Analyze the threat and recommend follow-up actions."
-            )
-
-            result = await self.dmitry_client.analyze_threat(description)
-            self.logger.info(
-                f"Reported action {action.action_id} to Dmitry — "
-                f"intent: {result.get('intent', 'n/a')}"
-            )
-        except Exception as e:
-            self.logger.warning(
-                f"Failed to report action {action.action_id} to Dmitry: {e}"
-            )

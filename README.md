@@ -5,11 +5,11 @@
 ## 🏗️ Architecture
 
 ```
-Shadow AI (Eyes) → PDRI (Brain) → Dmitry (Voice + Hands)
+Aegis AI (Eyes) → PDRI (Brain) → Dmitry (Voice + Hands)
 ```
 
 - **PDRI** - Risk intelligence engine with graph-based modeling
-- **Shadow AI** - AI usage detection and exposure sensor
+- **Aegis AI** - AI usage detection and exposure sensor
 - **Dmitry** - Natural language operations assistant
 
 ## 🚀 Quick Start
@@ -63,7 +63,7 @@ PDRI/
 │   ├── scoring/          # Risk scoring engine
 │   ├── ingestion/        # Kafka event ingestion
 │   └── simulation/       # Risk simulation
-├── shadow_ai/            # AI detection sensor integration
+├── aegis_ai/             # AI detection sensor integration
 ├── dmitry/               # AI assistant integration
 └── tests/                # Test suite
 ```

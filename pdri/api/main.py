@@ -162,13 +162,7 @@ def create_app() -> FastAPI:
     # WebSocket for real-time risk events
     from pdri.api.websocket import router as ws_router
     app.include_router(ws_router)
-    
-    # AegisAI webhook endpoints (inbound findings)
-    if settings.aegis_enabled:
-        from pdri.api.routes.aegis_webhooks import router as aegis_webhook_router
-        app.include_router(aegis_webhook_router)
-        logger.info("AegisAI webhook endpoints enabled")
-    
+
     @app.get("/", tags=["Root"])
     async def root():
         """Root endpoint returning API info."""

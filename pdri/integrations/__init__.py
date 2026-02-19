@@ -2,32 +2,21 @@
 Integrations Package
 ====================
 
-Client libraries for PDRI ↔ external system integration.
+Event producers for PDRI.
 
-    - ShadowAIProducer:      Shadow AI event producer
-    - DmitryBackendClient:   PDRI → Dmitry AI backend
-    - DmitryPDRIClient:      Dmitry → PDRI API
-    - DmitryClient:          Alias for DmitryPDRIClient (backward-compat)
-    - AegisClient:           PDRI → AegisAI platform
+    - AegisAIProducer: Produces security events to Kafka
+
+Note: Direct client integrations (AegisClient, DmitryClient) have been
+removed. PDRI is now a standalone service. Orchestration is handled
+by the Platform layer.
 
 Author: PDRI Team
-Version: 2.0.0
+Version: 3.0.0
 """
 
-from pdri.integrations.shadow_ai import ShadowAIProducer
-from pdri.integrations.dmitry_client import (
-    DmitryBackendClient,
-    DmitryPDRIClient,
-    DmitryClient,
-    MockDmitryClient,
-)
-from pdri.integrations.aegis_client import AegisClient
+from pdri.integrations.aegis_ai import AegisAIProducer, MockAegisAIProducer
 
 __all__ = [
-    "ShadowAIProducer",
-    "DmitryBackendClient",
-    "DmitryPDRIClient",
-    "DmitryClient",
-    "MockDmitryClient",
-    "AegisClient",
+    "AegisAIProducer",
+    "MockAegisAIProducer",
 ]

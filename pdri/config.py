@@ -142,61 +142,10 @@ class Settings(BaseSettings):
         return [s.strip() for s in self.kafka_bootstrap_servers.split(",")]
     
     # =========================================================================
-    # Integration Services
+    # Integration Services (removed - PDRI is now standalone)
     # =========================================================================
-    
-    shadow_ai_enabled: bool = Field(
-        default=False,
-        description="Whether Shadow AI integration is enabled"
-    )
-    shadow_ai_api_url: str = Field(
-        default="http://localhost:8001",
-        description="Shadow AI API URL"
-    )
-    
-    dmitry_enabled: bool = Field(
-        default=False,
-        description="Whether Dmitry integration is enabled"
-    )
-    dmitry_api_url: str = Field(
-        default="http://127.0.0.1:8765",
-        description="Dmitry AI backend URL"
-    )
-    dmitry_timeout: float = Field(
-        default=30.0,
-        ge=5.0,
-        le=120.0,
-        description="Timeout for Dmitry /message calls (seconds)"
-    )
-    dmitry_circuit_threshold: int = Field(
-        default=5,
-        ge=1,
-        le=50,
-        description="Number of failures before Dmitry circuit breaker opens"
-    )
-    
-    aegis_enabled: bool = Field(
-        default=False,
-        description="Whether AegisAI integration is enabled"
-    )
-    aegis_api_url: str = Field(
-        default="http://localhost:8003",
-        description="AegisAI API URL"
-    )
-    aegis_api_key: str = Field(
-        default="",
-        description="AegisAI API key for authentication"
-    )
-    aegis_sync_interval_minutes: int = Field(
-        default=15,
-        ge=1,
-        le=1440,
-        description="AegisAI sync interval in minutes"
-    )
-    aegis_webhook_secret: str = Field(
-        default="",
-        description="Shared HMAC-SHA256 secret for Aegis webhook signature verification"
-    )
+    # Direct integrations with Aegis/Dmitry have been removed.
+    # PDRI exposes REST API + WebSocket. Platform handles orchestration.
     
     # =========================================================================
     # Redis (Score Cache)

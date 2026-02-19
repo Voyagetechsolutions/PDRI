@@ -5,12 +5,13 @@ PDRI Shared Schemas Package
 Platform-wide event schemas and data types used across all PDRI components.
 
 This package provides:
-    - SecurityEvent: Core event schema for all security telemetry
-    - Enumerations: Event types, sensitivity tags, exposure directions
+    - SecurityEvent: Core input schema for all security telemetry
+    - RiskFinding: Core output schema for risk findings
+    - Enumerations: Event types, severity, sensitivity tags, exposure directions
     - Data models: Shared Pydantic models for API and messaging
 
 Author: PDRI Team
-Version: 1.0.0
+Version: 2.0.0
 """
 
 from shared.schemas.events import (
@@ -22,11 +23,32 @@ from shared.schemas.events import (
     EntityType,
 )
 
+from shared.schemas.findings import (
+    RiskFinding,
+    RiskFindingSummary,
+    RiskFindingsResponse,
+    FindingSeverity,
+    FindingStatus,
+    EntityRef,
+    EventRef,
+    Recommendation,
+)
+
 __all__ = [
+    # Input schema
     "SecurityEvent",
-    "SecurityEventType", 
+    "SecurityEventType",
     "SensitivityTag",
     "ExposureDirection",
     "RiskScore",
     "EntityType",
+    # Output schema
+    "RiskFinding",
+    "RiskFindingSummary",
+    "RiskFindingsResponse",
+    "FindingSeverity",
+    "FindingStatus",
+    "EntityRef",
+    "EventRef",
+    "Recommendation",
 ]

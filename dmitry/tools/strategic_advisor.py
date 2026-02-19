@@ -326,13 +326,13 @@ class StrategicAdvisor:
             StrategicInsight(
                 insight_id="ins-002",
                 category="AI/ML Risk",
-                title="Shadow AI Usage Increasing",
+                title="Unsanctioned AI Usage Increasing",
                 summary="23% increase in unvetted AI tool usage by employees. "
                        "Data exposure risk through consumer AI services.",
                 business_impact=RiskImpact.MODERATE,
                 financial_exposure=500000,
                 recommendations=["Deploy approved AI alternatives", "Update acceptable use policy"],
-                supporting_data={"shadow_ai_growth": 0.23},
+                supporting_data={"unsanctioned_ai_growth": 0.23},
             ),
             StrategicInsight(
                 insight_id="ins-003",

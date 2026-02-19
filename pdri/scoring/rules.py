@@ -405,7 +405,7 @@ class RiskScoringRules:
         """
         Calculate factor based on sensitivity tags from events.
         
-        Uses tags emitted by Shadow AI and other sensors.
+        Uses tags emitted by Aegis AI and other sensors.
         """
         if not events:
             return 0.0

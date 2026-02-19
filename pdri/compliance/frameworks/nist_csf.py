@@ -417,7 +417,7 @@ class NISTCSFAssessor:
                 score = 80
 
             elif "DS-5" in sub.subcategory_id:
-                findings.append("Data leak prevention through Shadow AI monitoring")
+                findings.append("Data leak prevention through Aegis AI monitoring")
                 evidence.append("Unsanctioned AI tool detection via ingestion pipeline")
                 score = 85
 
@@ -458,7 +458,7 @@ class NISTCSFAssessor:
             score = 88
 
             if "CM-7" in sub.subcategory_id:
-                findings.append("Unauthorized AI tool detection via Shadow AI producer")
+                findings.append("Unauthorized AI tool detection via Aegis AI producer")
                 evidence.append("Unsanctioned tool events auto-generated and scored")
                 score = 90
 

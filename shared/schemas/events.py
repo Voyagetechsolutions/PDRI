@@ -42,7 +42,7 @@ class SecurityEventType(str, Enum):
         - DATA_* : Data movement and handling events
     """
     
-    # AI-related events (from Shadow AI)
+    # AI-related events (from Aegis AI)
     AI_DATA_ACCESS = "AI_DATA_ACCESS"
     """AI tool accessed an internal data source"""
     
@@ -163,7 +163,7 @@ class SecurityEvent(BaseModel):
     Primary security event schema for PDRI.
     
     This is the core data structure consumed from Kafka and processed
-    by the PDRI ingestion layer. All sensors (Shadow AI, scanners, etc.)
+    by the PDRI ingestion layer. All sensors (Aegis AI, scanners, etc.)
     must emit events conforming to this schema.
     
     Attributes:

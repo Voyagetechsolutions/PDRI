@@ -80,7 +80,7 @@ PDRI is a **well-architected**, modular AI risk intelligence platform with stron
 ```
 
 **Data Flow:**
-1. Security events arrive via **Kafka** from Shadow AI, SIEMs, and external sensors
+1. Security events arrive via **Kafka** from Aegis AI, SIEMs, and external sensors
 2. **Event Consumer** validates, deduplicates (LRU idempotency), and routes to handlers
 3. **Event Handlers** update the **Neo4j Risk Graph** (nodes + edges)
 4. **Scoring Engine** recalculates multi-factor risk scores (exposure, volatility, sensitivity)
@@ -330,7 +330,7 @@ PDRI is a **well-architected**, modular AI risk intelligence platform with stron
 |-----------|--------|-------|
 | `dmitry_client.py` (540 lines) | ✅ Ready | Rich API client with NL formatting |
 | `aegis_client.py` (266 lines) | ✅ Ready | Bidirectional: push risk summaries, pull threat intel |
-| `shadow_ai.py` (294 lines) | ✅ Ready | Kafka producer with mock for testing |
+| `aegis_ai.py` (294 lines) | ✅ Ready | Kafka producer with mock for testing |
 
 **Gaps:**
 - ❌ No circuit breaker pattern (resilience)

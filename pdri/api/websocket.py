@@ -245,6 +245,65 @@ async def broadcast_alert(
     })
 
 
+async def broadcast_risk_finding(
+    finding_id: str,
+    title: str,
+    severity: str,
+    risk_score: float,
+    status: str,
+    entity_count: int,
+    event_type: str = "finding_created",
+):
+    """
+    Broadcast a RiskFinding event (new, updated, or resolved).
+
+    Args:
+        finding_id: Unique finding ID
+        title: Finding title
+        severity: low/medium/high/critical
+        risk_score: Composite risk score
+        status: open/acknowledged/resolved
+        entity_count: Number of entities involved
+        event_type: finding_created, finding_updated, finding_resolved
+    """
+    await ws_manager.broadcast("risk_events", {
+        "type": event_type,
+        "finding_id": finding_id,
+        "title": title,
+        "severity": severity,
+        "risk_score": risk_score,
+        "status": status,
+        "entity_count": entity_count,
+    })
+
+
+async def broadcast_response_action(
+    action_id: str,
+    action_type: str,
+    target_id: str,
+    status: str,
+    priority: str,
+):
+    """
+    Broadcast a response action event (for Platform to consume).
+
+    Args:
+        action_id: Action ID
+        action_type: alert/restrict/isolate/escalate/etc.
+        target_id: Target entity
+        status: pending/executing/completed/failed
+        priority: LOW/MEDIUM/HIGH/CRITICAL/EMERGENCY
+    """
+    await ws_manager.broadcast("alerts", {
+        "type": "response_action",
+        "action_id": action_id,
+        "action_type": action_type,
+        "target_id": target_id,
+        "status": status,
+        "priority": priority,
+    })
+
+
 # =============================================================================
 # WebSocket Endpoint
 # =============================================================================
