@@ -28,56 +28,117 @@ from pydantic import BaseModel, Field
 class NodeType(str, Enum):
     """
     Types of nodes in the risk graph.
-    
+
     Each node type has specific properties and risk characteristics.
     """
-    
+
     DATA_STORE = "DataStore"
     """Database, file system, or data warehouse"""
-    
+
     SERVICE = "Service"
     """Application or microservice"""
-    
+
     AI_TOOL = "AITool"
     """AI/ML tool or service (ChatGPT, Copilot, etc.)"""
-    
+
     IDENTITY = "Identity"
     """User or service account"""
-    
+
     API = "API"
     """API endpoint"""
-    
+
     EXTERNAL = "External"
     """External entity (vendor, partner, etc.)"""
+
+    # Identity graph node types
+    ROLE = "Role"
+    """Role defining a set of permissions"""
+
+    PERMISSION = "Permission"
+    """Permission to perform actions on resources"""
+
+    GROUP = "Group"
+    """Group of identities with shared roles"""
+
+    # AI Lineage node types
+    AI_MODEL = "AIModel"
+    """AI/ML model trained on data"""
+
+    TRAINING_DATASET = "TrainingDataset"
+    """Dataset used for training AI models"""
+
+    INFERENCE_ENDPOINT = "InferenceEndpoint"
+    """API endpoint serving AI model predictions"""
+
+    MODEL_OUTPUT = "ModelOutput"
+    """Output/prediction storage from AI models"""
 
 
 class EdgeType(str, Enum):
     """
     Types of edges (relationships) in the risk graph.
-    
+
     Edges define how entities interact and how data flows.
     """
-    
+
     ACCESSES = "ACCESSES"
     """Identity accesses a DataStore or Service"""
-    
+
     INTEGRATES_WITH = "INTEGRATES_WITH"
     """Service integrates with an AITool or external API"""
-    
+
     MOVES_DATA_TO = "MOVES_DATA_TO"
     """Data flows from one entity to another"""
-    
+
     EXPOSES = "EXPOSES"
     """Entity exposes data to an external endpoint"""
-    
+
     AUTHENTICATES_TO = "AUTHENTICATES_TO"
     """Identity authenticates to a service"""
-    
+
     MANAGES = "MANAGES"
     """Identity has management access to an entity"""
-    
+
     CONTAINS = "CONTAINS"
     """DataStore contains sensitive data categories"""
+
+    # Identity graph edges
+    HAS_ROLE = "HAS_ROLE"
+    """Identity has a role assigned"""
+
+    GRANTS_PERMISSION = "GRANTS_PERMISSION"
+    """Role grants a permission"""
+
+    APPLIES_TO = "APPLIES_TO"
+    """Permission applies to a resource (DataStore, Service, etc.)"""
+
+    MEMBER_OF = "MEMBER_OF"
+    """Identity is member of a group/team"""
+
+    DELEGATES_TO = "DELEGATES_TO"
+    """Identity delegates access to another identity"""
+
+    # AI Lineage edges
+    TRAINED_ON = "TRAINED_ON"
+    """AI model trained on a dataset"""
+
+    DERIVES_FROM = "DERIVES_FROM"
+    """Data derived from another source"""
+
+    SERVES = "SERVES"
+    """Inference endpoint serves a model"""
+
+    PRODUCES = "PRODUCES"
+    """Model produces outputs"""
+
+    FEEDS_INTO = "FEEDS_INTO"
+    """Data feeds into another process/model"""
+
+    FINE_TUNED_FROM = "FINE_TUNED_FROM"
+    """Model fine-tuned from another model"""
+
+    EXPORTS_TO = "EXPORTS_TO"
+    """Data exported to external destination"""
 
 
 class BaseNode(BaseModel):
@@ -354,6 +415,317 @@ class APINode(BaseNode):
         ge=0.0,
         le=1.0,
         description="Error rate in last 24 hours"
+    )
+
+
+class RoleNode(BaseNode):
+    """
+    Role entity defining a set of permissions.
+
+    Roles aggregate permissions and are assigned to identities.
+    Used for identity-aware path analysis and blast radius calculation.
+    """
+
+    node_type: NodeType = Field(default=NodeType.ROLE)
+
+    role_name: str = Field(..., description="Unique role name")
+    description: str = Field(
+        default="",
+        description="Human-readable description of the role"
+    )
+    scope: str = Field(
+        default="organization",
+        description="Scope: 'organization', 'team', 'project', 'resource'"
+    )
+    is_privileged: bool = Field(
+        default=False,
+        description="Whether this is a privileged/admin role"
+    )
+    is_builtin: bool = Field(
+        default=False,
+        description="Whether this is a built-in system role"
+    )
+
+    # Risk factors
+    permission_count: int = Field(
+        default=0,
+        description="Number of permissions granted"
+    )
+    identity_count: int = Field(
+        default=0,
+        description="Number of identities with this role"
+    )
+    data_access_scope: str = Field(
+        default="none",
+        description="Data access level: 'none', 'read', 'write', 'admin', 'all'"
+    )
+
+
+class PermissionNode(BaseNode):
+    """
+    Permission entity defining actions on resources.
+
+    Permissions are granted by roles and apply to specific resources.
+    """
+
+    node_type: NodeType = Field(default=NodeType.PERMISSION)
+
+    permission_name: str = Field(..., description="Unique permission identifier")
+    action: str = Field(
+        ...,
+        description="Action type: 'read', 'write', 'delete', 'admin', 'execute'"
+    )
+    resource_type: str = Field(
+        ...,
+        description="Type of resource: 'datastore', 'service', 'api', 'config'"
+    )
+    is_wildcard: bool = Field(
+        default=False,
+        description="Whether this grants access to all resources of type"
+    )
+
+    # Risk factors
+    sensitivity_impact: str = Field(
+        default="low",
+        description="Impact level: 'low', 'medium', 'high', 'critical'"
+    )
+    requires_approval: bool = Field(
+        default=False,
+        description="Whether using this permission requires approval"
+    )
+
+
+class GroupNode(BaseNode):
+    """
+    Group of identities with shared access.
+
+    Groups simplify permission management by aggregating identities.
+    """
+
+    node_type: NodeType = Field(default=NodeType.GROUP)
+
+    group_name: str = Field(..., description="Unique group name")
+    description: str = Field(
+        default="",
+        description="Human-readable description"
+    )
+    is_dynamic: bool = Field(
+        default=False,
+        description="Whether membership is dynamically computed"
+    )
+    membership_rule: Optional[str] = Field(
+        default=None,
+        description="Rule for dynamic membership (if applicable)"
+    )
+
+    # Risk factors
+    member_count: int = Field(
+        default=0,
+        description="Number of members"
+    )
+    role_count: int = Field(
+        default=0,
+        description="Number of roles assigned to this group"
+    )
+    includes_privileged: bool = Field(
+        default=False,
+        description="Whether group has any privileged roles"
+    )
+
+
+# =============================================================================
+# AI Lineage Node Types
+# =============================================================================
+
+
+class AIModelNode(BaseNode):
+    """
+    AI/ML model entity for lineage tracking.
+
+    Tracks the lifecycle of AI models including:
+    - What data they were trained on
+    - What outputs they produce
+    - Where they are deployed
+    """
+
+    node_type: NodeType = Field(default=NodeType.AI_MODEL)
+
+    model_name: str = Field(..., description="Model identifier/name")
+    model_type: str = Field(
+        ...,
+        description="Type: 'llm', 'classifier', 'regression', 'embedding', 'generative'"
+    )
+    vendor: Optional[str] = Field(
+        default=None,
+        description="Vendor if external (OpenAI, Anthropic, etc.)"
+    )
+    version: str = Field(default="1.0", description="Model version")
+    is_external: bool = Field(
+        default=False,
+        description="Whether this is a third-party model"
+    )
+
+    # Training info
+    training_date: Optional[datetime] = Field(
+        default=None,
+        description="When model was trained"
+    )
+    training_data_sensitivity: str = Field(
+        default="unknown",
+        description="Sensitivity of training data: 'public', 'internal', 'confidential', 'restricted'"
+    )
+
+    # Risk factors
+    can_memorize_data: bool = Field(
+        default=True,
+        description="Whether model can memorize/regurgitate training data"
+    )
+    outputs_to_external: bool = Field(
+        default=False,
+        description="Whether outputs are sent externally"
+    )
+    has_guardrails: bool = Field(
+        default=False,
+        description="Whether model has output filtering/guardrails"
+    )
+
+
+class TrainingDatasetNode(BaseNode):
+    """
+    Training dataset for AI model lineage.
+
+    Represents datasets used to train or fine-tune AI models.
+    """
+
+    node_type: NodeType = Field(default=NodeType.TRAINING_DATASET)
+
+    dataset_name: str = Field(..., description="Dataset identifier")
+    source_type: str = Field(
+        ...,
+        description="Source: 'internal_db', 'logs', 'documents', 'external', 'synthetic'"
+    )
+    data_classification: str = Field(
+        default="internal",
+        description="Classification: 'public', 'internal', 'confidential', 'restricted'"
+    )
+
+    # Content info
+    record_count: Optional[int] = Field(
+        default=None,
+        description="Number of records/samples"
+    )
+    contains_pii: bool = Field(
+        default=False,
+        description="Whether dataset contains PII"
+    )
+    contains_secrets: bool = Field(
+        default=False,
+        description="Whether dataset may contain secrets/credentials"
+    )
+    data_categories: List[str] = Field(
+        default_factory=list,
+        description="Categories: 'user_data', 'financial', 'health', 'credentials', etc."
+    )
+
+    # Lineage
+    source_datastores: List[str] = Field(
+        default_factory=list,
+        description="IDs of source DataStore nodes"
+    )
+    extraction_date: Optional[datetime] = Field(
+        default=None,
+        description="When data was extracted"
+    )
+
+
+class InferenceEndpointNode(BaseNode):
+    """
+    AI model inference endpoint.
+
+    Represents where AI models are served for predictions.
+    """
+
+    node_type: NodeType = Field(default=NodeType.INFERENCE_ENDPOINT)
+
+    endpoint_url: str = Field(..., description="Endpoint URL/path")
+    model_id: str = Field(..., description="ID of the model being served")
+    environment: str = Field(
+        default="production",
+        description="Environment: 'development', 'staging', 'production'"
+    )
+
+    # Access
+    is_public: bool = Field(
+        default=False,
+        description="Whether endpoint is publicly accessible"
+    )
+    authentication_required: bool = Field(
+        default=True,
+        description="Whether authentication is required"
+    )
+    rate_limit: Optional[int] = Field(
+        default=None,
+        description="Requests per minute limit"
+    )
+
+    # Monitoring
+    request_count_24h: int = Field(
+        default=0,
+        description="Requests in last 24 hours"
+    )
+    avg_latency_ms: Optional[float] = Field(
+        default=None,
+        description="Average response latency"
+    )
+
+    # Risk factors
+    logs_prompts: bool = Field(
+        default=False,
+        description="Whether prompts are logged"
+    )
+    logs_responses: bool = Field(
+        default=False,
+        description="Whether responses are logged"
+    )
+
+
+class ModelOutputNode(BaseNode):
+    """
+    AI model output/prediction storage.
+
+    Tracks where model outputs are stored and how they're used.
+    """
+
+    node_type: NodeType = Field(default=NodeType.MODEL_OUTPUT)
+
+    output_name: str = Field(..., description="Output storage identifier")
+    output_type: str = Field(
+        ...,
+        description="Type: 'predictions', 'embeddings', 'generated_content', 'analysis'"
+    )
+    storage_location: str = Field(
+        ...,
+        description="Where outputs are stored (DataStore ID or external)"
+    )
+
+    # Content risk
+    may_contain_sensitive: bool = Field(
+        default=False,
+        description="Whether outputs may contain sensitive data"
+    )
+    retention_days: Optional[int] = Field(
+        default=None,
+        description="How long outputs are retained"
+    )
+
+    # Downstream usage
+    used_for_training: bool = Field(
+        default=False,
+        description="Whether outputs are used to train other models"
+    )
+    shared_externally: bool = Field(
+        default=False,
+        description="Whether outputs are shared externally"
     )
 
 

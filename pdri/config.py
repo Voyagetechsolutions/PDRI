@@ -51,12 +51,27 @@ class Settings(BaseSettings):
     # =========================================================================
     # API Server
     # =========================================================================
-    
-    api_host: str = Field(default="0.0.0.0", description="API server host")
-    api_port: int = Field(default=8000, description="API server port")
+
+    host: str = Field(default="0.0.0.0", alias="api_host", description="API server host")
+    port: int = Field(default=8001, alias="api_port", description="API server port")
     cors_allowed_origins: str = Field(
         default="",
         description="Comma-separated allowed CORS origins (empty = allow all)"
+    )
+
+    # =========================================================================
+    # Platform Integration
+    # =========================================================================
+
+    platform_url: str = Field(
+        default="",
+        description="Platform base URL for service registration (empty = standalone mode)"
+    )
+    platform_heartbeat_interval: int = Field(
+        default=10,
+        ge=5,
+        le=60,
+        description="Heartbeat interval in seconds"
     )
     
     # =========================================================================

@@ -42,11 +42,16 @@ except ImportError:
 from pdri.config import settings
 from pdri.api.dependencies import ServiceContainer
 from pdri.api.auth import get_current_user, require_role
+from pdri.api.registry import get_registry
 from pdri.api.routes import (
     nodes_router,
     scoring_router,
     analytics_router,
     health_router,
+    findings_router,
+    identity_router,
+    velocity_router,
+    lineage_router,
 )
 
 
@@ -60,21 +65,32 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Application lifespan context manager.
-    
+
     Handles startup and shutdown of services.
     """
-    logger.info("Starting PDRI API...")
-    
-    # Initialize services
+    logger.info("Starting PDRI API v%s...", settings.app_version)
+
+    # Initialize services (Neo4j, PostgreSQL)
     container = ServiceContainer.get_instance()
     await container.initialize()
-    
-    logger.info("PDRI API started successfully")
-    
+
+    # Register with Platform (if configured)
+    registry = get_registry()
+    await registry.register()
+    await registry.start_heartbeat()
+
+    logger.info(
+        "PDRI API started - Neo4j: %s, PostgreSQL: %s, Platform: %s",
+        "connected" if container.graph_available else "unavailable",
+        "connected" if container.postgres_available else "unavailable",
+        "registered" if registry._registered else "standalone",
+    )
+
     yield
-    
-    # Shutdown services
+
+    # Shutdown
     logger.info("Shutting down PDRI API...")
+    await registry.deregister()
     await container.shutdown()
     logger.info("PDRI API shutdown complete")
 
@@ -158,7 +174,11 @@ def create_app() -> FastAPI:
     app.include_router(nodes_router)
     app.include_router(scoring_router)
     app.include_router(analytics_router)
-    
+    app.include_router(findings_router)
+    app.include_router(identity_router)
+    app.include_router(velocity_router)
+    app.include_router(lineage_router)
+
     # WebSocket for real-time risk events
     from pdri.api.websocket import router as ws_router
     app.include_router(ws_router)
@@ -182,10 +202,10 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "pdri.api.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
-        reload=settings.debug
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
     )

@@ -360,6 +360,16 @@ class RiskScore(BaseModel):
         description="Individual factor contributions to the score"
     )
 
+    # Schema versioning for Platform compatibility
+    schema_version: str = Field(
+        default="1.0.0",
+        description="Version of this schema format"
+    )
+    producer_version: str = Field(
+        default="1.0.0",
+        description="Version of PDRI that produced this score"
+    )
+
 
 class RiskTrajectory(BaseModel):
     """

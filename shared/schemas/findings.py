@@ -56,8 +56,12 @@ class Recommendation(BaseModel):
     """Structured recommendation for addressing a finding."""
     action: str = Field(..., description="Recommended action (e.g., 'restrict_access', 'review_permissions')")
     description: str = Field(..., description="Human-readable description")
-    priority: str = Field(default="medium", description="Priority: low, medium, high")
+    priority: str = Field(default="medium", description="Priority: low, medium, high, critical")
     effort: Optional[str] = Field(None, description="Estimated effort: low, medium, high")
+    target: Optional[str] = Field(None, description="Target entity for the action")
+    risk_reduction_estimate: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Estimated risk reduction if action taken"
+    )
 
 
 class RiskFinding(BaseModel):
@@ -95,6 +99,26 @@ class RiskFinding(BaseModel):
     finding_id: str = Field(
         default_factory=lambda: f"f-{uuid4().hex[:8]}",
         description="Unique finding identifier"
+    )
+
+    # Ownership & Multi-tenancy
+    tenant_id: str = Field(
+        default="default",
+        description="Tenant identifier for multi-tenancy"
+    )
+    owner_id: Optional[str] = Field(
+        None,
+        description="User/team that owns this finding"
+    )
+
+    # Correlation & Deduplication
+    fingerprint: Optional[str] = Field(
+        None,
+        description="SHA256 fingerprint for deduplication"
+    )
+    correlation_id: Optional[str] = Field(
+        None,
+        description="ID of the event correlation that generated this finding"
     )
 
     # Classification
@@ -135,6 +159,16 @@ class RiskFinding(BaseModel):
         description="Sensitivity component score"
     )
 
+    # Primary Entity (the main subject of this finding)
+    primary_entity_id: Optional[str] = Field(
+        None,
+        description="ID of the primary entity this finding is about"
+    )
+    primary_entity_type: Optional[str] = Field(
+        None,
+        description="Type of the primary entity"
+    )
+
     # Entities & Relationships
     entities_involved: List[EntityRef] = Field(
         default_factory=list,
@@ -150,6 +184,10 @@ class RiskFinding(BaseModel):
         default_factory=list,
         description="Events that contributed to this finding"
     )
+    evidence_count: int = Field(
+        default=0,
+        description="Total number of events contributing to this finding"
+    )
 
     # Recommendations
     recommendations: List[Recommendation] = Field(
@@ -157,14 +195,38 @@ class RiskFinding(BaseModel):
         description="Structured recommendations for remediation"
     )
 
-    # Lifecycle
+    # Lifecycle & SLA
     status: FindingStatus = Field(
         default=FindingStatus.OPEN,
         description="Current finding status"
     )
+    status_reason: Optional[str] = Field(
+        None,
+        description="Reason for status change (resolution notes, false positive reason)"
+    )
     assigned_to: Optional[str] = Field(
         None,
         description="User/team assigned to handle this finding"
+    )
+    sla_due_at: Optional[datetime] = Field(
+        None,
+        description="When this finding must be resolved by"
+    )
+    sla_breached: bool = Field(
+        default=False,
+        description="Whether the SLA has been breached"
+    )
+    first_seen_at: Optional[datetime] = Field(
+        None,
+        description="When this finding was first detected"
+    )
+    last_seen_at: Optional[datetime] = Field(
+        None,
+        description="When this finding was last updated with new evidence"
+    )
+    occurrence_count: int = Field(
+        default=1,
+        description="How many times this fingerprint has been seen"
     )
 
     # Metadata
@@ -191,6 +253,16 @@ class RiskFinding(BaseModel):
         description="When the finding was resolved (if applicable)"
     )
 
+    # Schema Versioning (for Platform compatibility)
+    schema_version: str = Field(
+        default="1.0.0",
+        description="Version of this schema format"
+    )
+    producer_version: str = Field(
+        default="1.0.0",
+        description="Version of PDRI that produced this finding"
+    )
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return self.model_dump(mode="json")
@@ -205,6 +277,8 @@ class RiskFinding(BaseModel):
             "title": self.title,
             "status": self.status.value,
             "created_at": self.created_at.isoformat(),
+            "schema_version": self.schema_version,
+            "producer_version": self.producer_version,
         }
 
 

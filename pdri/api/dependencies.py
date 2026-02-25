@@ -31,18 +31,19 @@ logger = logging.getLogger(__name__)
 class ServiceContainer:
     """
     Singleton container for shared services.
-    
-    Manages lifecycle of graph engine and scoring engine.
+
+    Manages lifecycle of graph engine, scoring engine, and database.
     Supports degraded mode when backing services are unavailable.
     """
-    
+
     _instance: Optional["ServiceContainer"] = None
-    
+
     def __init__(self):
         self._graph_engine: Optional[GraphEngine] = None
         self._scoring_engine: Optional[ScoringEngine] = None
         self._initialized = False
         self.graph_available = False
+        self.postgres_available = False
     
     @classmethod
     def get_instance(cls) -> "ServiceContainer":
@@ -55,9 +56,21 @@ class ServiceContainer:
         """Initialize all services (graceful degradation on failure)."""
         if self._initialized:
             return
-        
+
         logger.info("Initializing service container...")
-        
+
+        # ── PostgreSQL (for findings/scores persistence) ──────
+        try:
+            from pdri.db import init_db
+            await init_db()
+            self.postgres_available = True
+            logger.info("PostgreSQL database connected")
+        except Exception as e:
+            logger.warning(
+                f"PostgreSQL unavailable — findings will not persist: {e}"
+            )
+            self.postgres_available = False
+
         # ── Neo4j (optional) ──────────────────────────────────
         try:
             self._graph_engine = GraphEngine()
@@ -70,7 +83,7 @@ class ServiceContainer:
             )
             self._graph_engine = None
             self.graph_available = False
-        
+
         # ── Scoring engine (requires graph) ───────────────────
         if self.graph_available and self._graph_engine:
             self._scoring_engine = ScoringEngine(self._graph_engine)
@@ -80,32 +93,41 @@ class ServiceContainer:
             logger.warning(
                 "Scoring engine skipped (no graph connection)"
             )
-        
+
         self._initialized = True
-        
-        if self.graph_available:
+
+        if self.graph_available and self.postgres_available:
             logger.info("Service container fully initialized")
         else:
             logger.warning(
                 "Service container initialized in DEGRADED mode — "
-                "graph/scoring endpoints will return 503"
+                "some endpoints may return 503"
             )
     
     async def shutdown(self) -> None:
         """Shutdown all services."""
         logger.info("Shutting down service container...")
-        
+
+        # Close PostgreSQL connections
+        if self.postgres_available:
+            try:
+                from pdri.db import close_db
+                await close_db()
+            except Exception as e:
+                logger.warning(f"Error closing PostgreSQL: {e}")
+            self.postgres_available = False
+
         if self._graph_engine:
             try:
                 await self._graph_engine.disconnect()
             except Exception as e:
                 logger.warning(f"Error disconnecting graph engine: {e}")
             self._graph_engine = None
-        
+
         self._scoring_engine = None
         self._initialized = False
         self.graph_available = False
-        
+
         logger.info("Service container shutdown complete")
     
     @property

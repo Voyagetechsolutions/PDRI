@@ -38,8 +38,22 @@ from pdri.graph.models import (
     AIToolNode,
     IdentityNode,
     APINode,
+    RoleNode,
+    PermissionNode,
+    GroupNode,
+    AIModelNode,
+    TrainingDatasetNode,
+    InferenceEndpointNode,
+    ModelOutputNode,
 )
-from pdri.graph.queries import NodeQueries, EdgeQueries, PathQueries, AnalyticsQueries
+from pdri.graph.queries import (
+    NodeQueries,
+    EdgeQueries,
+    PathQueries,
+    AnalyticsQueries,
+    IdentityQueries,
+    AILineageQueries,
+)
 
 
 # Type variable for generic node operations
@@ -97,6 +111,13 @@ class GraphEngine:
         NodeType.AI_TOOL: AIToolNode,
         NodeType.IDENTITY: IdentityNode,
         NodeType.API: APINode,
+        NodeType.ROLE: RoleNode,
+        NodeType.PERMISSION: PermissionNode,
+        NodeType.GROUP: GroupNode,
+        NodeType.AI_MODEL: AIModelNode,
+        NodeType.TRAINING_DATASET: TrainingDatasetNode,
+        NodeType.INFERENCE_ENDPOINT: InferenceEndpointNode,
+        NodeType.MODEL_OUTPUT: ModelOutputNode,
     }
     
     def __init__(
@@ -718,3 +739,451 @@ class GraphEngine:
                 "connected": False,
                 "error": str(e)
             }
+
+    # =========================================================================
+    # Identity Analytics & Blast Radius
+    # =========================================================================
+
+    async def calculate_blast_radius(
+        self,
+        identity_id: str,
+        include_downstream: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate blast radius for an identity compromise.
+
+        Blast radius measures how many resources and sensitive assets
+        would be exposed if a specific identity is compromised.
+
+        Args:
+            identity_id: Identity to analyze
+            include_downstream: Include resources exposed by accessible resources
+
+        Returns:
+            Blast radius metrics and affected resource list
+        """
+        query = (
+            IdentityQueries.CALCULATE_BLAST_RADIUS_WITH_DOWNSTREAM
+            if include_downstream
+            else IdentityQueries.CALCULATE_BLAST_RADIUS
+        )
+
+        try:
+            async with self._session() as session:
+                result = await session.run(query, identity_id=identity_id)
+                record = await result.single()
+
+                if record is None:
+                    return {
+                        "identity_id": identity_id,
+                        "found": False,
+                        "blast_radius": 0,
+                        "message": "Identity not found"
+                    }
+
+                # Build response based on query type
+                if include_downstream:
+                    return {
+                        "identity_id": record["identity_id"],
+                        "identity_name": record["identity_name"],
+                        "found": True,
+                        "direct_blast_radius": record["direct_blast_radius"],
+                        "downstream_exposure_count": record["downstream_exposure_count"],
+                        "total_blast_radius": (
+                            record["direct_blast_radius"] +
+                            record["downstream_exposure_count"]
+                        ),
+                        "accessible_resources": record["accessible_resources"],
+                        "external_exposures": record["external_exposures"],
+                    }
+                else:
+                    return {
+                        "identity_id": record["identity_id"],
+                        "identity_name": record["identity_name"],
+                        "privilege_level": record["privilege_level"],
+                        "found": True,
+                        "blast_radius": record["total_resources"],
+                        "breakdown": {
+                            "data_stores": record["data_stores"],
+                            "services": record["services"],
+                            "ai_tools": record["ai_tools"],
+                        },
+                        "risk_metrics": {
+                            "critical_resources": record["critical_resources"],
+                            "sensitive_resources": record["sensitive_resources"],
+                            "avg_sensitivity": record["avg_sensitivity"],
+                            "max_sensitivity": record["max_sensitivity"],
+                        },
+                        "resource_ids": record["resource_ids"],
+                    }
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error calculating blast radius: {e}")
+            raise GraphEngineError(f"Failed to calculate blast radius: {e}") from e
+
+    async def find_identity_access_paths(
+        self,
+        identity_id: str,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Find all access paths for an identity (via roles and permissions).
+
+        Args:
+            identity_id: Identity to analyze
+            limit: Maximum paths to return
+
+        Returns:
+            List of access paths with permission details
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    IdentityQueries.FIND_IDENTITY_ACCESS_PATHS,
+                    identity_id=identity_id,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error finding identity access paths: {e}")
+            raise GraphEngineError(f"Failed to find access paths: {e}") from e
+
+    async def get_privileged_identities(
+        self,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all identities with privileged roles.
+
+        Returns identities that have admin/elevated access,
+        useful for security audits.
+
+        Args:
+            limit: Maximum results
+
+        Returns:
+            List of privileged identities with their roles
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    IdentityQueries.GET_PRIVILEGED_IDENTITIES,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error getting privileged identities: {e}")
+            raise GraphEngineError(f"Failed to get privileged identities: {e}") from e
+
+    async def get_over_permissioned_identities(
+        self,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Find identities with more permissions than they use.
+
+        Identifies potential security risks where identities have
+        access they don't actually use (principle of least privilege).
+
+        Args:
+            limit: Maximum results
+
+        Returns:
+            List of over-permissioned identities with utilization metrics
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    IdentityQueries.GET_OVER_PERMISSIONED_IDENTITIES,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error finding over-permissioned identities: {e}")
+            raise GraphEngineError(f"Failed to find over-permissioned: {e}") from e
+
+    async def get_group_blast_radius(
+        self,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Get blast radius for all groups.
+
+        Calculates aggregate blast radius for each group based on
+        the combined access of all members.
+
+        Args:
+            limit: Maximum results
+
+        Returns:
+            List of groups with their blast radius metrics
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    IdentityQueries.GET_GROUP_BLAST_RADIUS,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error getting group blast radius: {e}")
+            raise GraphEngineError(f"Failed to get group blast radius: {e}") from e
+
+    async def find_unauthorized_access_paths(
+        self,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Find direct access that bypasses role permissions.
+
+        Identifies potential compliance issues where identities
+        access resources without proper role/permission paths.
+
+        Args:
+            limit: Maximum results
+
+        Returns:
+            List of unauthorized access paths
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    IdentityQueries.FIND_UNAUTHORIZED_ACCESS_PATHS,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error finding unauthorized access: {e}")
+            raise GraphEngineError(f"Failed to find unauthorized access: {e}") from e
+
+    # =========================================================================
+    # AI Data Lineage
+    # =========================================================================
+
+    async def trace_data_to_ai(
+        self,
+        data_store_id: str,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Trace how data flows from a data store into AI systems.
+
+        Forward lineage: DataStore → Dataset → Model
+
+        Args:
+            data_store_id: Source data store ID
+            limit: Maximum paths to return
+
+        Returns:
+            List of lineage paths showing AI consumption
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    AILineageQueries.TRACE_DATA_TO_AI,
+                    data_store_id=data_store_id,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error tracing data to AI: {e}")
+            raise GraphEngineError(f"Failed to trace data to AI: {e}") from e
+
+    async def trace_full_ai_lineage(
+        self,
+        min_sensitivity: float = 0.5,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Trace complete AI data lineage end-to-end.
+
+        Full chain: Source → Dataset → Model → Endpoint → Output → External
+
+        Args:
+            min_sensitivity: Minimum source sensitivity to include
+            limit: Maximum paths to return
+
+        Returns:
+            Complete lineage paths through AI systems
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    AILineageQueries.TRACE_FULL_AI_LINEAGE,
+                    min_sensitivity=min_sensitivity,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error tracing full AI lineage: {e}")
+            raise GraphEngineError(f"Failed to trace AI lineage: {e}") from e
+
+    async def trace_model_training_sources(
+        self,
+        model_id: str
+    ) -> Dict[str, Any]:
+        """
+        Trace backward to find all data sources for a model.
+
+        Backward lineage: Model → Dataset → DataStore sources
+
+        Args:
+            model_id: AI model ID
+
+        Returns:
+            Model info with all contributing data sources
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    AILineageQueries.TRACE_MODEL_TRAINING_SOURCES,
+                    model_id=model_id
+                )
+                record = await result.single()
+                return dict(record) if record else {}
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error tracing model sources: {e}")
+            raise GraphEngineError(f"Failed to trace model sources: {e}") from e
+
+    async def find_sensitive_data_in_ai(
+        self,
+        min_sensitivity: float = 0.5,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Find sensitive data being used by AI systems.
+
+        Identifies data stores with high sensitivity that feed
+        into AI training or inference.
+
+        Args:
+            min_sensitivity: Minimum sensitivity threshold
+            limit: Maximum results
+
+        Returns:
+            List of sensitive data → AI relationships
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    AILineageQueries.FIND_SENSITIVE_DATA_IN_AI,
+                    min_sensitivity=min_sensitivity,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error finding sensitive AI data: {e}")
+            raise GraphEngineError(f"Failed to find sensitive AI data: {e}") from e
+
+    async def find_external_ai_exposure(
+        self,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Find data exposed to external AI systems.
+
+        Identifies internal data that flows to third-party
+        AI services (OpenAI, Anthropic, etc.).
+
+        Args:
+            limit: Maximum results
+
+        Returns:
+            List of internal data → external AI exposures
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    AILineageQueries.FIND_EXTERNAL_AI_EXPOSURE,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error finding external AI exposure: {e}")
+            raise GraphEngineError(f"Failed to find external AI exposure: {e}") from e
+
+    async def calculate_data_ai_blast_radius(
+        self,
+        data_store_id: str
+    ) -> Dict[str, Any]:
+        """
+        Calculate AI-specific blast radius for a data source.
+
+        If this data source is compromised, which AI systems
+        could be affected?
+
+        Args:
+            data_store_id: Data store ID
+
+        Returns:
+            Blast radius metrics for AI impact
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    AILineageQueries.CALCULATE_DATA_AI_BLAST_RADIUS,
+                    data_store_id=data_store_id
+                )
+                record = await result.single()
+                return dict(record) if record else {}
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error calculating AI blast radius: {e}")
+            raise GraphEngineError(f"Failed to calculate AI blast radius: {e}") from e
+
+    async def get_ai_data_inventory(self) -> List[Dict[str, Any]]:
+        """
+        Get inventory of all data used in AI systems.
+
+        Returns comprehensive view of training datasets,
+        their sources, and which models use them.
+
+        Returns:
+            AI data inventory list
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(AILineageQueries.GET_AI_DATA_INVENTORY)
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error getting AI data inventory: {e}")
+            raise GraphEngineError(f"Failed to get AI inventory: {e}") from e
+
+    async def get_models_by_data_sensitivity(
+        self,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Get AI models grouped by training data sensitivity.
+
+        Helps identify models trained on sensitive data
+        that may require additional controls.
+
+        Args:
+            limit: Maximum results
+
+        Returns:
+            Models with their data sensitivity levels
+        """
+        try:
+            async with self._session() as session:
+                result = await session.run(
+                    AILineageQueries.GET_MODELS_BY_DATA_SENSITIVITY,
+                    limit=limit
+                )
+                return await result.data()
+
+        except Neo4jError as e:
+            logger.error(f"Neo4j error getting models by sensitivity: {e}")
+            raise GraphEngineError(f"Failed to get models by sensitivity: {e}") from e
