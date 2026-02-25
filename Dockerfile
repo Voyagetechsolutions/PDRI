@@ -40,7 +40,6 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY pdri/ ./pdri/
 COPY shared/ ./shared/
-COPY dmitry/ ./dmitry/
 
 # Set ownership
 RUN chown -R pdri:pdri /app
