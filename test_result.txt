@@ -1,0 +1,18 @@
+============================= test session starts =============================
+collecting ... collected 13 items
+
+tests/test_finding_rules.py::TestScoringFormula::test_classify_risk_levels PASSED [  7%]
+tests/test_finding_rules.py::TestScoringFormula::test_weights_sum_to_one PASSED [ 15%]
+tests/test_finding_rules.py::TestScoringFormula::test_exposure_factor_weights_sum PASSED [ 23%]
+tests/test_finding_rules.py::TestScoringFormula::test_sensitivity_factor_weights_sum PASSED [ 30%]
+tests/test_finding_rules.py::TestSensitivityComputation::test_sensitive_name_detection PASSED [ 38%]
+tests/test_finding_rules.py::TestSensitivityComputation::test_classification_scores PASSED [ 46%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_fingerprint_deterministic PASSED [ 53%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_fingerprint_unique_per_event PASSED [ 61%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_entities_from_event PASSED [ 69%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_entities_identity_only PASSED [ 76%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_edge PASSED [ 84%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_edge_no_identity PASSED [ 92%]
+tests/test_finding_rules.py::TestSLACalculation::test_sla_hours_mapping PASSED [100%]
+
+============================= 13 passed in 1.04s ==============================

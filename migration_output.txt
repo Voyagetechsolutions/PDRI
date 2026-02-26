@@ -1,0 +1,4 @@
+STDOUT:
+
+STDERR:
+C:\Python314\python.exe: No module named alembic.__main__; 'alembic' is a package and cannot be directly executed

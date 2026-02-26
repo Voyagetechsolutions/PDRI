@@ -53,6 +53,8 @@ from pdri.api.routes import (
     velocity_router,
     lineage_router,
 )
+from pdri.api.routes.ingest import router as ingest_router
+from pdri.api.routes.platform_api import router as platform_router
 
 
 # Configure structured logging
@@ -178,6 +180,10 @@ def create_app() -> FastAPI:
     app.include_router(identity_router)
     app.include_router(velocity_router)
     app.include_router(lineage_router)
+
+    # MVP graph-lite routes
+    app.include_router(ingest_router)
+    app.include_router(platform_router)
 
     # WebSocket for real-time risk events
     from pdri.api.websocket import router as ws_router

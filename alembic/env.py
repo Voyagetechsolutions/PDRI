@@ -9,7 +9,12 @@ Version: 1.0.0
 """
 
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
+
+# Ensure the project root is on sys.path so 'pdri' is importable
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -26,6 +31,12 @@ from pdri.db.models import (  # noqa: F401 - import to register models
     AuditLogDB,
     ComplianceAssessmentDB,
     ProcessedEventDB,
+    EntityDB,
+    EdgeDB,
+    SecurityEventDB,
+    RiskScoreDB,
+    MVPFindingDB,
+    FindingsEvidenceDB,
 )
 
 # Alembic Config object
@@ -35,8 +46,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set SQLAlchemy URL from PDRI settings
-config.set_main_option("sqlalchemy.url", settings.postgres_async_dsn)
+# Set SQLAlchemy URL from PDRI settings (escape % for configparser)
+config.set_main_option("sqlalchemy.url", settings.postgres_async_dsn.replace("%", "%%"))
 
 # Target metadata for autogenerate
 target_metadata = Base.metadata

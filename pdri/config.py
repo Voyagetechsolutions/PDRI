@@ -21,6 +21,7 @@ Version: 1.0.0
 
 from functools import lru_cache
 from typing import List
+from urllib.parse import quote_plus
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, SecretStr
 
@@ -92,6 +93,20 @@ class Settings(BaseSettings):
     )
     
     # =========================================================================
+    # Supabase (cloud Postgres provider)
+    # =========================================================================
+    
+    supabase_url: str = Field(
+        default="", description="Supabase project URL"
+    )
+    supabase_anon_key: str = Field(
+        default="", description="Supabase anonymous/public key"
+    )
+    supabase_service_role_key: str = Field(
+        default="", description="Supabase service role key"
+    )
+    
+    # =========================================================================
     # PostgreSQL
     # =========================================================================
     
@@ -107,16 +122,18 @@ class Settings(BaseSettings):
     @property
     def postgres_dsn(self) -> str:
         """Get PostgreSQL connection string."""
+        pwd = quote_plus(self.postgres_password)
         return (
-            f"postgresql://{self.postgres_user}:{self.postgres_password}"
+            f"postgresql://{self.postgres_user}:{pwd}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
     
     @property
     def postgres_async_dsn(self) -> str:
         """Get async PostgreSQL connection string for asyncpg."""
+        pwd = quote_plus(self.postgres_password)
         return (
-            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+            f"postgresql+asyncpg://{self.postgres_user}:{pwd}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
     

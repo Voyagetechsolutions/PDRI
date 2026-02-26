@@ -141,6 +141,9 @@ class ServiceContainer:
         return self._scoring_engine
 
 
+# Re-export get_db from session module for convenience
+from pdri.db.session import get_db  # noqa: F401
+
 # Dependency functions for FastAPI
 async def get_graph_engine() -> Optional[GraphEngine]:
     """

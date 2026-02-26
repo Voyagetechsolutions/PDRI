@@ -1,0 +1,79 @@
+EXIT: 1
+STDOUT:
+
+STDERR:
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\click\core.py", line 1485, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\click\core.py", line 1406, in main
+    rv = self.invoke(ctx)
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\click\core.py", line 1269, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\click\core.py", line 824, in invoke
+    return callback(*args, **kwargs)
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\main.py", line 424, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<46 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\main.py", line 594, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Python314\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Python314\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Python314\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\server.py", line 71, in serve
+    await self._serve(sockets)
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\server.py", line 78, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\config.py", line 439, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\bathini bona\AppData\Roaming\Python\Python314\site-packages\uvicorn\importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "C:\Python314\Lib\importlib\__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1314, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1342, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 938, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 762, in exec_module
+  File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+  File "c:\Users\bathini bona\Documents\PDRI\pdri\api\__init__.py", line 16, in <module>
+    from pdri.api.main import app, create_app
+  File "c:\Users\bathini bona\Documents\PDRI\pdri\api\main.py", line 46, in <module>
+    from pdri.api.routes import (
+    ...<8 lines>...
+    )
+  File "c:\Users\bathini bona\Documents\PDRI\pdri\api\routes\__init__.py", line 17, in <module>
+    from pdri.api.routes.velocity import router as velocity_router
+  File "c:\Users\bathini bona\Documents\PDRI\pdri\api\routes\velocity.py", line 21, in <module>
+    from pdri.api.dependencies import ServiceContainer, get_db
+ImportError: cannot import name 'get_db' from 'pdri.api.dependencies' (c:\Users\bathini bona\Documents\PDRI\pdri\api\dependencies.py)
+

@@ -1,0 +1,298 @@
+﻿============================= test session starts =============================
+collecting ... collected 13 items
+
+tests/test_finding_rules.py::TestScoringFormula::test_classify_risk_levels FAILED [  7%]
+tests/test_finding_rules.py::TestScoringFormula::test_weights_sum_to_one FAILED [ 15%]
+tests/test_finding_rules.py::TestScoringFormula::test_exposure_factor_weights_sum FAILED [ 23%]
+tests/test_finding_rules.py::TestScoringFormula::test_sensitivity_factor_weights_sum FAILED [ 30%]
+tests/test_finding_rules.py::TestSensitivityComputation::test_sensitive_name_detection FAILED [ 38%]
+tests/test_finding_rules.py::TestSensitivityComputation::test_classification_scores FAILED [ 46%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_fingerprint_deterministic FAILED [ 53%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_fingerprint_unique_per_event FAILED [ 61%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_entities_from_event FAILED [ 69%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_entities_identity_only FAILED [ 76%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_edge FAILED [ 84%]
+tests/test_finding_rules.py::TestIngestionPipeline::test_extract_edge_no_identity FAILED [ 92%]
+tests/test_finding_rules.py::TestSLACalculation::test_sla_hours_mapping FAILED [100%]
+
+================================== FAILURES ===================================
+________________ TestScoringFormula.test_classify_risk_levels _________________
+tests\test_finding_rules.py:76: in test_classify_risk_levels
+    from pdri.scoring.pg_engine import classify_risk_level
+pdri\scoring\pg_engine.py:24: in <module>
+    from pdri.db.models import EntityDB, EdgeDB, SecurityEventDB, RiskScoreDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+_________________ TestScoringFormula.test_weights_sum_to_one __________________
+tests\test_finding_rules.py:89: in test_weights_sum_to_one
+    from pdri.scoring.pg_engine import W_EXPOSURE, W_SENSITIVITY, W_VOLATILITY, W_CONFIDENCE
+pdri\scoring\pg_engine.py:24: in <module>
+    from pdri.db.models import EntityDB, EdgeDB, SecurityEventDB, RiskScoreDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+_____________ TestScoringFormula.test_exposure_factor_weights_sum _____________
+tests\test_finding_rules.py:94: in test_exposure_factor_weights_sum
+    from pdri.scoring.pg_engine import (
+pdri\scoring\pg_engine.py:24: in <module>
+    from pdri.db.models import EntityDB, EdgeDB, SecurityEventDB, RiskScoreDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+___________ TestScoringFormula.test_sensitivity_factor_weights_sum ____________
+tests\test_finding_rules.py:101: in test_sensitivity_factor_weights_sum
+    from pdri.scoring.pg_engine import SF_NAME_HEURISTIC, SF_DATA_CLASSIFICATION, SF_SENSITIVITY_TAGS
+pdri\scoring\pg_engine.py:24: in <module>
+    from pdri.db.models import EntityDB, EdgeDB, SecurityEventDB, RiskScoreDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+__________ TestSensitivityComputation.test_sensitive_name_detection ___________
+tests\test_finding_rules.py:110: in test_sensitive_name_detection
+    from pdri.scoring.pg_engine import _SENSITIVE_RE
+pdri\scoring\pg_engine.py:24: in <module>
+    from pdri.db.models import EntityDB, EdgeDB, SecurityEventDB, RiskScoreDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+____________ TestSensitivityComputation.test_classification_scores ____________
+tests\test_finding_rules.py:118: in test_classification_scores
+    from pdri.scoring.pg_engine import CLASSIFICATION_SCORES
+pdri\scoring\pg_engine.py:24: in <module>
+    from pdri.db.models import EntityDB, EdgeDB, SecurityEventDB, RiskScoreDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+____________ TestIngestionPipeline.test_fingerprint_deterministic _____________
+tests\test_finding_rules.py:129: in test_fingerprint_deterministic
+    from pdri.ingestion.pipeline import _fingerprint
+pdri\ingestion\__init__.py:21: in <module>
+    from pdri.ingestion.correlation import (
+pdri\ingestion\correlation.py:34: in <module>
+    from pdri.db.models import ProcessedEventDB, EventCorrelationDB, FindingDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+___________ TestIngestionPipeline.test_fingerprint_unique_per_event ___________
+tests\test_finding_rules.py:135: in test_fingerprint_unique_per_event
+    from pdri.ingestion.pipeline import _fingerprint
+pdri\ingestion\__init__.py:21: in <module>
+    from pdri.ingestion.correlation import (
+pdri\ingestion\correlation.py:34: in <module>
+    from pdri.db.models import ProcessedEventDB, EventCorrelationDB, FindingDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+___________ TestIngestionPipeline.test_extract_entities_from_event ____________
+tests\test_finding_rules.py:141: in test_extract_entities_from_event
+    from pdri.ingestion.pipeline import _extract_entities
+pdri\ingestion\__init__.py:21: in <module>
+    from pdri.ingestion.correlation import (
+pdri\ingestion\correlation.py:34: in <module>
+    from pdri.db.models import ProcessedEventDB, EventCorrelationDB, FindingDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+__________ TestIngestionPipeline.test_extract_entities_identity_only __________
+tests\test_finding_rules.py:161: in test_extract_entities_identity_only
+    from pdri.ingestion.pipeline import _extract_entities
+pdri\ingestion\__init__.py:21: in <module>
+    from pdri.ingestion.correlation import (
+pdri\ingestion\correlation.py:34: in <module>
+    from pdri.db.models import ProcessedEventDB, EventCorrelationDB, FindingDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+___________________ TestIngestionPipeline.test_extract_edge ___________________
+tests\test_finding_rules.py:174: in test_extract_edge
+    from pdri.ingestion.pipeline import _extract_edge
+pdri\ingestion\__init__.py:21: in <module>
+    from pdri.ingestion.correlation import (
+pdri\ingestion\correlation.py:34: in <module>
+    from pdri.db.models import ProcessedEventDB, EventCorrelationDB, FindingDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+_____________ TestIngestionPipeline.test_extract_edge_no_identity _____________
+tests\test_finding_rules.py:189: in test_extract_edge_no_identity
+    from pdri.ingestion.pipeline import _extract_edge
+pdri\ingestion\__init__.py:21: in <module>
+    from pdri.ingestion.correlation import (
+pdri\ingestion\correlation.py:34: in <module>
+    from pdri.db.models import ProcessedEventDB, EventCorrelationDB, FindingDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+__________________ TestSLACalculation.test_sla_hours_mapping __________________
+tests\test_finding_rules.py:199: in test_sla_hours_mapping
+    from pdri.scoring.pg_engine import SLA_HOURS
+pdri\scoring\pg_engine.py:24: in <module>
+    from pdri.db.models import EntityDB, EdgeDB, SecurityEventDB, RiskScoreDB
+pdri\db\models.py:44: in <module>
+    class FindingDB(Base, TimestampMixin):
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py:846: in __init_subclass__
+    _as_declarative(cls._sa_registry, cls, cls.__dict__)
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:245: in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:326: in setup_mapping
+    return _ClassScanMapperConfig(
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:573: in __init__
+    self._extract_mappable_attributes()
+..\..\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py:1530: in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+E   sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
+============================== warnings summary ===============================
+tests/test_finding_rules.py: 12 warnings
+  C:\Users\bathini bona\Documents\PDRI\pdri\db\models.py:44: SAWarning: This declarative base already contains a class with the same class name and module name as pdri.db.models.FindingDB, and will be replaced in the string-lookup table.
+    class FindingDB(Base, TimestampMixin):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_finding_rules.py::TestScoringFormula::test_classify_risk_levels
+FAILED tests/test_finding_rules.py::TestScoringFormula::test_weights_sum_to_one
+FAILED tests/test_finding_rules.py::TestScoringFormula::test_exposure_factor_weights_sum
+FAILED tests/test_finding_rules.py::TestScoringFormula::test_sensitivity_factor_weights_sum
+FAILED tests/test_finding_rules.py::TestSensitivityComputation::test_sensitive_name_detection
+FAILED tests/test_finding_rules.py::TestSensitivityComputation::test_classification_scores
+FAILED tests/test_finding_rules.py::TestIngestionPipeline::test_fingerprint_deterministic
+FAILED tests/test_finding_rules.py::TestIngestionPipeline::test_fingerprint_unique_per_event
+FAILED tests/test_finding_rules.py::TestIngestionPipeline::test_extract_entities_from_event
+FAILED tests/test_finding_rules.py::TestIngestionPipeline::test_extract_entities_identity_only
+FAILED tests/test_finding_rules.py::TestIngestionPipeline::test_extract_edge
+FAILED tests/test_finding_rules.py::TestIngestionPipeline::test_extract_edge_no_identity
+FAILED tests/test_finding_rules.py::TestSLACalculation::test_sla_hours_mapping
+======================= 13 failed, 12 warnings in 2.28s =======================

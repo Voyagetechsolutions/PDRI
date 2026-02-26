@@ -225,6 +225,9 @@ def require_role(*allowed_roles: str):
         async def score(user = Depends(require_role("admin", "analyst"))):
             ...
     """
+    # Allow both require_role("admin", "analyst") and require_role(["admin", "analyst"])
+    if len(allowed_roles) == 1 and isinstance(allowed_roles[0], (list, tuple)):
+        allowed_roles = allowed_roles[0]
     allowed = {UserRole(r) for r in allowed_roles}
 
     async def _check(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:

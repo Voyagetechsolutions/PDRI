@@ -31,6 +31,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+import sqlalchemy as sa
 
 from pdri.db.base import Base, TimestampMixin, generate_uuid, utc_now
 
@@ -160,7 +161,9 @@ class FindingDB(Base, TimestampMixin):
     # Metadata
     # =========================================================================
     tags: Mapped[list] = mapped_column(ARRAY(String), nullable=False, default=list)
-    metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    finding_metadata: Mapped[dict] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
 
     # Schema versioning for Platform compatibility
     schema_version: Mapped[str] = mapped_column(
@@ -486,4 +489,279 @@ class EventCorrelationDB(Base):
         Index("ix_correlation_fingerprint_window", "fingerprint", "window_start"),
         Index("ix_correlation_status", "status"),
         Index("ix_correlation_primary_entity", "primary_entity_id"),
+    )
+
+
+# =============================================================================
+# Graph-Lite MVP Tables
+# =============================================================================
+
+
+class EntityDB(Base, TimestampMixin):
+    """
+    Entity inventory — the nodes of the risk graph.
+
+    Entity types: data_store, service, ai_tool, identity, saas_app, external
+    """
+
+    __tablename__ = "entities"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    # Relationships
+    outgoing_edges: Mapped[list["EdgeDB"]] = relationship(
+        "EdgeDB", foreign_keys="EdgeDB.src_id", back_populates="source", lazy="selectin"
+    )
+    incoming_edges: Mapped[list["EdgeDB"]] = relationship(
+        "EdgeDB", foreign_keys="EdgeDB.dst_id", back_populates="target", lazy="selectin"
+    )
+    risk_score: Mapped[Optional["RiskScoreDB"]] = relationship(
+        "RiskScoreDB", back_populates="entity", uselist=False, lazy="selectin"
+    )
+
+    __table_args__ = (
+        Index("ix_entities_type", "tenant_id", "entity_type"),
+        Index("ix_entities_name", "tenant_id", "name"),
+        sa.UniqueConstraint("tenant_id", "external_id", name="uq_entities_tenant_external"),
+    )
+
+
+class EdgeDB(Base):
+    """
+    Relationship between two entities — the edges of the risk graph.
+
+    Relation types: ACCESSES, INTEGRATES_WITH, MOVES_DATA_TO,
+    AUTHENTICATES_VIA, HAS_PERMISSION, EXPORTS_TO
+    """
+
+    __tablename__ = "edges"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    src_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    dst_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    relation_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    weight: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    # Relationships
+    source: Mapped["EntityDB"] = relationship(
+        "EntityDB", foreign_keys=[src_id], back_populates="outgoing_edges"
+    )
+    target: Mapped["EntityDB"] = relationship(
+        "EntityDB", foreign_keys=[dst_id], back_populates="incoming_edges"
+    )
+
+    __table_args__ = (
+        Index("ix_edges_src", "tenant_id", "src_id"),
+        Index("ix_edges_dst", "tenant_id", "dst_id"),
+        Index("ix_edges_relation", "tenant_id", "relation_type"),
+        sa.UniqueConstraint(
+            "tenant_id", "src_id", "dst_id", "relation_type",
+            name="uq_edges_tenant_src_dst_rel",
+        ),
+    )
+
+
+class SecurityEventDB(Base):
+    """
+    Raw + normalized security events.
+
+    Stores the full event payload with a fingerprint for deduplication.
+    """
+
+    __tablename__ = "security_events"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    event_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_system_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    entity_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    identity_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
+    exposure_direction: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True
+    )
+    sensitivity_tags: Mapped[list] = mapped_column(
+        ARRAY(String), nullable=False, default=list
+    )
+    raw_event: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    normalized: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=utc_now
+    )
+    fingerprint: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        Index("ix_sevents_tenant_time", "tenant_id", "timestamp"),
+        Index("ix_sevents_entity", "tenant_id", "entity_id"),
+        Index("ix_sevents_type", "tenant_id", "event_type"),
+        Index("ix_sevents_fingerprint", "tenant_id", "fingerprint"),
+        sa.UniqueConstraint("tenant_id", "event_id", name="uq_events_tenant_event_id"),
+    )
+
+
+class RiskScoreDB(Base):
+    """
+    Per-entity risk score with explainable breakdown.
+
+    One row per entity (latest score). Historical scores go to score_history.
+    """
+
+    __tablename__ = "risk_scores"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    entity_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    composite_score: Mapped[float] = mapped_column(Float, nullable=False)
+    exposure_score: Mapped[float] = mapped_column(Float, nullable=False)
+    sensitivity_score: Mapped[float] = mapped_column(Float, nullable=False)
+    volatility_score: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    explain: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    scoring_version: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="1.0.0"
+    )
+    calculated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    # Relationships
+    entity: Mapped["EntityDB"] = relationship(
+        "EntityDB", back_populates="risk_score"
+    )
+
+    __table_args__ = (
+        Index("ix_rscores_tenant", "tenant_id"),
+        Index("ix_rscores_level", "tenant_id", "risk_level"),
+        Index("ix_rscores_composite", "tenant_id", "composite_score"),
+        sa.UniqueConstraint("tenant_id", "entity_id", name="uq_risk_scores_tenant_entity"),
+    )
+
+
+class MVPFindingDB(Base, TimestampMixin):
+    """
+    Risk findings generated by the PDRI MVP rules engine.
+
+    Separate from legacy FindingDB to avoid migration conflicts.
+    """
+
+    __tablename__ = "mvp_findings"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    finding_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    risk_score: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="open")
+    primary_entity_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    affected_entities: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    recommendations: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    tags: Mapped[list] = mapped_column(ARRAY(String), nullable=False, default=list)
+    sla_due_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    acknowledged_by: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Relationships
+    evidence: Mapped[list["FindingsEvidenceDB"]] = relationship(
+        "FindingsEvidenceDB", back_populates="finding", lazy="selectin"
+    )
+
+    __table_args__ = (
+        Index("ix_mvpfindings_tenant", "tenant_id"),
+        Index("ix_mvpfindings_status", "tenant_id", "status"),
+        Index("ix_mvpfindings_severity", "tenant_id", "severity"),
+        Index("ix_mvpfindings_type", "tenant_id", "finding_type"),
+        Index("ix_mvpfindings_entity", "tenant_id", "primary_entity_id"),
+    )
+
+
+class FindingsEvidenceDB(Base):
+    """
+    Evidence trail linking findings to events and score snapshots.
+    """
+
+    __tablename__ = "findings_evidence"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    finding_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("mvp_findings.id", ondelete="CASCADE"), nullable=False
+    )
+    event_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("security_events.id", ondelete="SET NULL"), nullable=True
+    )
+    evidence_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    # Relationships
+    finding: Mapped["MVPFindingDB"] = relationship(
+        "MVPFindingDB", back_populates="evidence"
+    )
+
+    __table_args__ = (
+        Index("ix_evidence_finding", "tenant_id", "finding_id"),
     )
